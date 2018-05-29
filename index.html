@@ -57,6 +57,7 @@
               <label class="sr-only" for="file.encoding">File encoding</label>
               <select ng-model="file.chosenEncoding"
                       ng-options="enc for enc in file.encodings track by enc"
+                      ng-change="encodingChosen(file.chosenEncoding)"
                       class="form-control">
               </select>
             </div>

@@ -99,11 +99,15 @@ angular.element(document).ready(function() {
       Outflow: "Outflow",
       Inflow: "Inflow"
     };
+
     $scope.file = {
       encodings: encodings,
-      chosenEncoding: "UTF-8"
+      chosenEncoding: localStorage.getItem('chosenEncoding') || "UTF-8"
     };
     $scope.data_object = new DataObject();
+    $scope.encodingChosen = function(encoding) {
+      localStorage.setItem('chosenEncoding', encoding);
+    };
     $scope.$watch("data.source", function(newValue, oldValue) {
       if (newValue && newValue.length > 0) {
         $scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding);
