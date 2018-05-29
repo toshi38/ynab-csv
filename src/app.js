@@ -90,24 +90,29 @@ angular.element(document).ready(function() {
   // Application code
   angular.module("app").controller("ParseController", function($scope) {
     $scope.angular_loaded = true;
-    $scope.ynab_cols = ["Date", "Payee", "Memo", "Outflow", "Inflow"];
-    $scope.data = {};
-    $scope.ynab_map = {
-      Date: "Date",
-      Payee: "Payee",
-      Memo: "Memo",
-      Outflow: "Outflow",
-      Inflow: "Inflow"
-    };
 
-    $scope.file = {
-      encodings: encodings,
-      chosenEncoding: localStorage.getItem('chosenEncoding') || "UTF-8"
-    };
-    $scope.data_object = new DataObject();
+    $scope.setInitialScopeState = function() {
+      $scope.ynab_cols = ["Date", "Payee", "Memo", "Outflow", "Inflow"];
+      $scope.data = {};
+      $scope.ynab_map = {
+        Date: "Date",
+        Payee: "Payee",
+        Memo: "Memo",
+        Outflow: "Outflow",
+        Inflow: "Inflow"
+      };
+      $scope.file = {
+        encodings: encodings,
+        chosenEncoding: localStorage.getItem('chosenEncoding') || "UTF-8"
+      };
+      $scope.data_object = new DataObject();
+    }
+
+    $scope.setInitialScopeState();
     $scope.encodingChosen = function(encoding) {
       localStorage.setItem('chosenEncoding', encoding);
     };
+
     $scope.$watch("data.source", function(newValue, oldValue) {
       if (newValue && newValue.length > 0) {
         $scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding);
@@ -124,6 +129,9 @@ angular.element(document).ready(function() {
     $scope.csvString = function() {
       return $scope.data_object.converted_csv(null, $scope.ynab_map);
     };
+    $scope.reloadApp = function() {
+      $scope.setInitialScopeState();
+    }
     $scope.downloadFile = function() {
       var a;
       var date = new Date();
