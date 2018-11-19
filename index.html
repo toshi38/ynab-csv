@@ -33,7 +33,6 @@
       <div class='container'>
         <!-- <h1>YNAB CSV</h1> -->
         <div class='pull-right' ng-if='data_object.base_json'>
-		  <div ng-show="ynab_map['Inflow'] == ynab_map['Outflow']" class='btn btn-default' ng-click='invert_flows()'><i class='fa fa-exchange'></i> Invert flows</div>
           <div class='btn btn-default' ng-click='reloadApp()'><i class='fa fa-refresh'></i> Load a different file</div>
           <div class='btn btn-primary' ng-click='downloadFile()'><i class='fa fa-cloud-download'></i> Save YNAB Data</div>
         </div>
@@ -66,29 +65,28 @@
         </div>
 
         <div id='tool_wrapper' ng-if='data_object.base_json'>
-
           <div class="panel panel-default">
-            <div class="panel-heading"><strong>YNAB Data</strong> <em>(1st 10 rows)</em></div>
+            <div class="panel-heading">
+              <div ng-show="ynab_map['Inflow'] == ynab_map['Outflow']" class="btn btn-default pull-right" ng-click="invert_flows()">
+                <i class="fa fa-exchange"></i> Invert flows
+              </div>
+              <h4>YNAB Data <small>(1st 10 rows)</small></h4>
+              <div class="clearfix"></div>
+            </div>
             <div class='table-container'>
-              <table class='table'>
-                <colgroup>
-                    <col class="col-md-2">
-                    <col class="col-md-4">
-                    <col class="col-md-4">
-                    <col class="col-md-2">
-                </colgroup>
+              <table class='table table-striped'>
                 <thead>
-                  <tr>
-                    <th ng-repeat='col in ynab_cols'>
-                      {{col}}<br/>
-                      <select ng-model="ynab_map[col]" ng-options="f for f in data_object.fields()"></select>
+                  <tr class="form-row">
+                    <th scope="col" class="form-group" ng-repeat='col in ynab_cols'>
+                      <label for="id-{{col}}">{{col}}</label>
+                      <select class="form-control" id="id-{{col}}" ng-model="ynab_map[col]" ng-options="f for f in data_object.fields()"></select>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr ng-repeat='row in preview'>
                     <td ng-repeat='col in ynab_cols'>
-                      <span>{{row[col]}}</span>
+                      {{row[col]}}
                     </td>
                   </tr>
                 </tbody>
