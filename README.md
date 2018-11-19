@@ -22,7 +22,7 @@ Your data never leaves your computer. All the processing happens locally. This i
 
 ## Known Issues
 
-* Currently **Firefox** saves the file with a `.part` extension and **Safari** save the file with the filename as `Unknown`. For best support just use **Chrome** for now.
+**Safari** will save the file with the filename as `Unknown`. For best support use **Chrome** for now.
 
 ## Reporting Issues
 
