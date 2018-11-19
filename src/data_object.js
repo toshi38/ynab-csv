@@ -31,11 +31,12 @@ window.DataObject = class DataObject {
   //   which fields you choose in the dropdowns in the browser.
 
   // --- parameters ----
-  // limit: expects and integer and limits how many rows get parsed (specifically for preview)
+  // limit: expects an integer and limits how many rows get parsed (specifically for preview)
   //     pass in false or null to do all.
   // lookup: hash definition of YNAB column names to selected base column names. Lets us
   //     convert the uploaded CSV file into the columns that YNAB expects.
-  converted_json(limit, lookup) {
+  // inverted_outflow: if true, positive values represent outflow while negative values represent inflow
+  converted_json(limit, lookup, inverted_outflow = false) {
     var value;
     if (this.base_json === null) {
       return null;
@@ -52,24 +53,35 @@ window.DataObject = class DataObject {
             cell = row[lookup[col]];
             // Some YNAB columns need special formatting,
             //   the rest are just returned as they are.
-            switch (col) {
-              case "Outflow":
-                if (lookup['Outflow'] == lookup['Inflow']) {
-                  tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
-                } else {
-                  tmp_row[col] = cell;
-                }
-                break;
-              case "Inflow":
-                if (lookup['Outflow'] == lookup['Inflow']) {
-                  tmp_row[col] = cell.startsWith('-') ? "" : cell;
-                } else {
-                  tmp_row[col] = cell;
-                }
-                break;
-              default:
-                tmp_row[col] = cell;
-            }
+			
+			if (cell) {
+				switch (col) {
+				  case "Outflow":
+					if (lookup['Outflow'] == lookup['Inflow']) {
+						if (!inverted_outflow) {
+							tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
+						} else {
+							tmp_row[col] = cell.startsWith('-') ? "" : cell;
+						}
+					} else {
+					  tmp_row[col] = cell;
+					}
+					break;
+				  case "Inflow":
+					if (lookup['Outflow'] == lookup['Inflow']) {
+						if (!inverted_outflow) {
+							tmp_row[col] = cell.startsWith('-') ? "" : cell;
+						} else {
+							tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
+						}
+					} else {
+					  tmp_row[col] = cell;
+					}
+					break;
+				  default:
+					tmp_row[col] = cell;
+				}
+			}            
           });
           value.push(tmp_row);
         }
@@ -78,14 +90,14 @@ window.DataObject = class DataObject {
     return value;
   }
 
-  converted_csv(limit, lookup) {
+  converted_csv(limit, lookup, inverted_outflow) {
     var string;
     if (this.base_json === null) {
       return nil;
     }
     // Papa.unparse string
     string = '"' + ynab_cols.join('","') + '"\n';
-    this.converted_json(limit, lookup).forEach(function(row) {
+    this.converted_json(limit, lookup, inverted_outflow).forEach(function(row) {
       var row_values;
       row_values = [];
       ynab_cols.forEach(function(col) {
