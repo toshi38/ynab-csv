@@ -16,7 +16,7 @@
     "csv"
   ],
   "dependencies": {
-    "express": "^4.11.2"
+    "express": "^4.16.4"
   },
   "author": "Ryan Hall",
   "license": "MIT",
