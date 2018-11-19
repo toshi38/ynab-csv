@@ -101,6 +101,7 @@ angular.element(document).ready(function() {
         Outflow: "Outflow",
         Inflow: "Inflow"
       };
+	  $scope.inverted_outflow = false;
       $scope.file = {
         encodings: encodings,
         chosenEncoding: localStorage.getItem('chosenEncoding') || "UTF-8"
@@ -116,21 +117,29 @@ angular.element(document).ready(function() {
     $scope.$watch("data.source", function(newValue, oldValue) {
       if (newValue && newValue.length > 0) {
         $scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding);
-        $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_map);
+        $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_map, $scope.inverted_outflow);
+      }
+    });
+	$scope.$watch("inverted_outflow", function(newValue, oldValue) {
+      if (newValue != oldValue) {
+        $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_map, $scope.inverted_outflow);
       }
     });
     $scope.$watch(
       "ynab_map",
       function(newValue, oldValue) {
-        $scope.preview = $scope.data_object.converted_json(10, newValue);
+        $scope.preview = $scope.data_object.converted_json(10, newValue, $scope.inverted_outflow);
       },
       true
     );
     $scope.csvString = function() {
-      return $scope.data_object.converted_csv(null, $scope.ynab_map);
+      return $scope.data_object.converted_csv(null, $scope.ynab_map, $scope.inverted_outflow);
     };
     $scope.reloadApp = function() {
       $scope.setInitialScopeState();
+    }
+	$scope.invert_flows = function() {
+      $scope.inverted_outflow = !$scope.inverted_outflow;
     }
     $scope.downloadFile = function() {
       var a;

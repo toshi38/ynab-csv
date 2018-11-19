@@ -33,6 +33,7 @@
       <div class='container'>
         <!-- <h1>YNAB CSV</h1> -->
         <div class='pull-right' ng-if='data_object.base_json'>
+		  <div ng-show="ynab_map['Inflow'] == ynab_map['Outflow']" class='btn btn-default' ng-click='invert_flows()'><i class='fa fa-exchange'></i> Invert flows</div>
           <div class='btn btn-default' ng-click='reloadApp()'><i class='fa fa-refresh'></i> Load a different file</div>
           <div class='btn btn-primary' ng-click='downloadFile()'><i class='fa fa-cloud-download'></i> Save YNAB Data</div>
         </div>
