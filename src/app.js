@@ -94,7 +94,7 @@ angular.element(document).ready(function () {
     $scope.angular_loaded = true;
 
     $scope.setInitialScopeState = function () {
-      $scope.ynab_cols = JSON.parse(localStorage.getItem('columnFormat')) || new_ynab_cols;
+      $scope.ynab_cols = JSON.parse(localStorage.getItem('columnFormat')) || old_ynab_cols;
       $scope.data = {};
       $scope.ynab_map = $scope.ynab_cols.reduce(function (acc, val) {
         acc[val] = val;
