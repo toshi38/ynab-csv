@@ -10,31 +10,33 @@ var encodings = [
   "gb18030", "Big5", "EUC-JP", "ISO-2022-JP", "Shift_JIS", "EUC-KR",
   "replacement", "UTF-16BE", "UTF-16LE", "x-user-defined"
 ]
+var old_ynab_cols = ["Date", "Payee", "Memo", "Outflow", "Inflow"];
+var new_ynab_cols = ["Date", "Payee", "Memo", "Amount"];
 
-Date.prototype.yyyymmdd = function() {
+Date.prototype.yyyymmdd = function () {
   var mm = this.getMonth() + 1; // getMonth() is zero-based
   var dd = this.getDate();
 
   return [this.getFullYear(),
-          (mm>9 ? '' : '0') + mm,
-          (dd>9 ? '' : '0') + dd
-         ].join('');
+    (mm > 9 ? '' : '0') + mm,
+    (dd > 9 ? '' : '0') + dd
+  ].join('');
 };
 
-angular.element(document).ready(function() {
+angular.element(document).ready(function () {
   angular.module("app", []);
   angular.module("app").directive("fileread", [
-    function() {
+    function () {
       return {
         scope: {
           fileread: "="
         },
-        link: function(scope, element, attributes) {
-          return element.bind("change", function(changeEvent) {
+        link: function (scope, element, attributes) {
+          return element.bind("change", function (changeEvent) {
             var reader;
             reader = new FileReader();
-            reader.onload = function(loadEvent) {
-              return scope.$apply(function() {
+            reader.onload = function (loadEvent) {
+              return scope.$apply(function () {
                 scope.fileread = loadEvent.target.result;
               });
             };
@@ -45,7 +47,7 @@ angular.element(document).ready(function() {
     }
   ]);
   angular.module("app").directive("dropzone", [
-    function() {
+    function () {
       return {
         transclude: true,
         replace: true,
@@ -53,12 +55,12 @@ angular.element(document).ready(function() {
         scope: {
           dropzone: "="
         },
-        link: function(scope, element, attributes) {
-          element.bind("dragenter", function(event) {
+        link: function (scope, element, attributes) {
+          element.bind("dragenter", function (event) {
             element.addClass("dragging");
             event.preventDefault();
           });
-          element.bind("dragover", function(event) {
+          element.bind("dragover", function (event) {
             var efct;
             element.addClass("dragging");
             event.preventDefault();
@@ -66,18 +68,18 @@ angular.element(document).ready(function() {
             event.dataTransfer.dropEffect =
               "move" === efct || "linkMove" === efct ? "move" : "copy";
           });
-          element.bind("dragleave", function(event) {
+          element.bind("dragleave", function (event) {
             element.removeClass("dragging");
             event.preventDefault();
           });
-          element.bind("drop", function(event) {
+          element.bind("drop", function (event) {
             var reader;
             element.removeClass("dragging");
             event.preventDefault();
             event.stopPropagation();
             reader = new FileReader();
-            reader.onload = function(loadEvent) {
-              scope.$apply(function() {
+            reader.onload = function (loadEvent) {
+              scope.$apply(function () {
                 scope.dropzone = loadEvent.target.result;
               });
             };
@@ -88,20 +90,17 @@ angular.element(document).ready(function() {
     }
   ]);
   // Application code
-  angular.module("app").controller("ParseController", function($scope) {
+  angular.module("app").controller("ParseController", function ($scope) {
     $scope.angular_loaded = true;
 
-    $scope.setInitialScopeState = function() {
-      $scope.ynab_cols = ["Date", "Payee", "Memo", "Outflow", "Inflow"];
+    $scope.setInitialScopeState = function () {
+      $scope.ynab_cols = JSON.parse(localStorage.getItem('columnFormat')) || new_ynab_cols;
       $scope.data = {};
-      $scope.ynab_map = {
-        Date: "Date",
-        Payee: "Payee",
-        Memo: "Memo",
-        Outflow: "Outflow",
-        Inflow: "Inflow"
-      };
-	  $scope.inverted_outflow = false;
+      $scope.ynab_map = $scope.ynab_cols.reduce(function (acc, val) {
+        acc[val] = val;
+        return acc;
+      }, {});
+      $scope.inverted_outflow = false;
       $scope.file = {
         encodings: encodings,
         chosenEncoding: localStorage.getItem('chosenEncoding') || "UTF-8"
@@ -110,38 +109,46 @@ angular.element(document).ready(function() {
     }
 
     $scope.setInitialScopeState();
-    $scope.encodingChosen = function(encoding) {
+    $scope.encodingChosen = function (encoding) {
       localStorage.setItem('chosenEncoding', encoding);
     };
+    $scope.toggleColumnFormat = function () {
+      if ($scope.ynab_cols == new_ynab_cols) {
+        $scope.ynab_cols = old_ynab_cols;
+      } else {
+        $scope.ynab_cols = new_ynab_cols;
+      }
+      localStorage.setItem('columnFormat', JSON.stringify($scope.ynab_cols));
+    }
 
-    $scope.$watch("data.source", function(newValue, oldValue) {
+    $scope.$watch("data.source", function (newValue, oldValue) {
       if (newValue && newValue.length > 0) {
         $scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding);
-        $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_map, $scope.inverted_outflow);
+        $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
       }
     });
-	$scope.$watch("inverted_outflow", function(newValue, oldValue) {
+    $scope.$watch("inverted_outflow", function (newValue, oldValue) {
       if (newValue != oldValue) {
-        $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_map, $scope.inverted_outflow);
+        $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
       }
     });
     $scope.$watch(
       "ynab_map",
-      function(newValue, oldValue) {
-        $scope.preview = $scope.data_object.converted_json(10, newValue, $scope.inverted_outflow);
+      function (newValue, oldValue) {
+        $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, newValue, $scope.inverted_outflow);
       },
       true
     );
-    $scope.csvString = function() {
-      return $scope.data_object.converted_csv(null, $scope.ynab_map, $scope.inverted_outflow);
+    $scope.csvString = function () {
+      return $scope.data_object.converted_csv(null, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
     };
-    $scope.reloadApp = function() {
+    $scope.reloadApp = function () {
       $scope.setInitialScopeState();
     }
-	$scope.invert_flows = function() {
+    $scope.invert_flows = function () {
       $scope.inverted_outflow = !$scope.inverted_outflow;
     }
-    $scope.downloadFile = function() {
+    $scope.downloadFile = function () {
       var a;
       var date = new Date();
       a = document.createElement("a");

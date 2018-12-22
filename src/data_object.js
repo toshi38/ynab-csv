@@ -1,8 +1,3 @@
-// These are the columns that YNAB expects
-var ynab_cols;
-
-ynab_cols = ["Date", "Payee", "Memo", "Outflow", "Inflow"];
-
 // This class does all the heavy lifting.
 // It takes the and can format it into csv
 window.DataObject = class DataObject {
@@ -36,7 +31,7 @@ window.DataObject = class DataObject {
   // lookup: hash definition of YNAB column names to selected base column names. Lets us
   //     convert the uploaded CSV file into the columns that YNAB expects.
   // inverted_outflow: if true, positive values represent outflow while negative values represent inflow
-  converted_json(limit, lookup, inverted_outflow = false) {
+  converted_json(limit, ynab_cols, lookup, inverted_outflow = false) {
     var value;
     if (this.base_json === null) {
       return null;
@@ -44,44 +39,43 @@ window.DataObject = class DataObject {
     value = [];
     // TODO: You might want to check for errors. Papaparse has an errors field.
     if (this.base_json.data) {
-      this.base_json.data.forEach(function(row, index) {
+      this.base_json.data.forEach(function (row, index) {
         var tmp_row;
         if (!limit || index < limit) {
           tmp_row = {};
-          ynab_cols.forEach(function(col) {
+          ynab_cols.forEach(function (col) {
             var cell;
             cell = row[lookup[col]];
             // Some YNAB columns need special formatting,
             //   the rest are just returned as they are.
-			
-			if (cell) {
-				switch (col) {
-				  case "Outflow":
-					if (lookup['Outflow'] == lookup['Inflow']) {
-						if (!inverted_outflow) {
-							tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
-						} else {
-							tmp_row[col] = cell.startsWith('-') ? "" : cell;
-						}
-					} else {
-					  tmp_row[col] = cell;
-					}
-					break;
-				  case "Inflow":
-					if (lookup['Outflow'] == lookup['Inflow']) {
-						if (!inverted_outflow) {
-							tmp_row[col] = cell.startsWith('-') ? "" : cell;
-						} else {
-							tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
-						}
-					} else {
-					  tmp_row[col] = cell;
-					}
-					break;
-				  default:
-					tmp_row[col] = cell;
-				}
-			}            
+            if (cell) {
+              switch (col) {
+                case "Outflow":
+                  if (lookup['Outflow'] == lookup['Inflow']) {
+                    if (!inverted_outflow) {
+                      tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
+                    } else {
+                      tmp_row[col] = cell.startsWith('-') ? "" : cell;
+                    }
+                  } else {
+                    tmp_row[col] = cell;
+                  }
+                  break;
+                case "Inflow":
+                  if (lookup['Outflow'] == lookup['Inflow']) {
+                    if (!inverted_outflow) {
+                      tmp_row[col] = cell.startsWith('-') ? "" : cell;
+                    } else {
+                      tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
+                    }
+                  } else {
+                    tmp_row[col] = cell;
+                  }
+                  break;
+                default:
+                  tmp_row[col] = cell;
+              }
+            }
           });
           value.push(tmp_row);
         }
@@ -90,17 +84,17 @@ window.DataObject = class DataObject {
     return value;
   }
 
-  converted_csv(limit, lookup, inverted_outflow) {
+  converted_csv(limit, ynab_cols, lookup, inverted_outflow) {
     var string;
     if (this.base_json === null) {
       return nil;
     }
     // Papa.unparse string
     string = '"' + ynab_cols.join('","') + '"\n';
-    this.converted_json(limit, lookup, inverted_outflow).forEach(function(row) {
+    this.converted_json(limit, ynab_cols, lookup, inverted_outflow).forEach(function (row) {
       var row_values;
       row_values = [];
-      ynab_cols.forEach(function(col) {
+      ynab_cols.forEach(function (col) {
         return row_values.push(row[col]);
       });
       return (string += '"' + row_values.join('","') + '"\n');
