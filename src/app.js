@@ -96,7 +96,7 @@ angular.element(document).ready(function () {
     $scope.setInitialScopeState = function () {
       $scope.ynab_cols = JSON.parse(localStorage.getItem('columnFormat')) || old_ynab_cols;
       $scope.data = {};
-      $scope.ynab_map = $scope.ynab_cols.reduce(function (acc, val) {
+      $scope.ynab_map = JSON.parse(localStorage.getItem('chosenColumns')) || $scope.ynab_cols.reduce(function (acc, val) {
         acc[val] = val;
         return acc;
       }, {});
@@ -135,6 +135,7 @@ angular.element(document).ready(function () {
     $scope.$watch(
       "ynab_map",
       function (newValue, oldValue) {
+        localStorage.setItem('chosenColumns', JSON.stringify(newValue));
         $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, newValue, $scope.inverted_outflow);
       },
       true
