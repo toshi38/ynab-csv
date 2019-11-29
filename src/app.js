@@ -103,7 +103,10 @@ angular.element(document).ready(function () {
   // Application code
   angular.module("app")
   .config(function($locationProvider) {
-    $locationProvider.html5Mode(true).hashPrefix('!');
+    $locationProvider.html5Mode({
+      enabled: true,
+      requireBase: false,
+    }).hashPrefix('!');
   })
   .controller("ParseController", function ($scope, $location) {
     $scope.angular_loaded = true;
