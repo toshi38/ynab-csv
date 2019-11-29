@@ -2,6 +2,7 @@
 <!-- vim: set tabstop=2 shiftwidth=2 softtabstop=2 expandtab : -->
 <html lang="en">
   <head>
+    <base href="/"/>
     <title>YNAB CSV Converter</title>
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css">
@@ -36,7 +37,17 @@
           <div class='btn btn-default' ng-click='reloadApp()'><i class='fa fa-refresh'></i> Load a different file</div>
           <div class='btn btn-primary' ng-click='downloadFile()'><i class='fa fa-cloud-download'></i> Save YNAB Data</div>
         </div>
-        <a href='https://github.com/aniav/ynab-csv/issues/new' target='_blank' class='btn btn-default'><i class='fa fa-exclamation-circle'></i> Report an issue</a>
+        <div class='form-inline'>
+          <a href='https://github.com/aniav/ynab-csv/issues/new' target='_blank' class='btn btn-default'><i class='fa fa-exclamation-circle'></i> Report an issue</a>
+          <select 
+            name="ngvalueselect" 
+            ng-model="profileName" 
+            class="form-control"
+            ng-change="profileChosen(profileName)"
+            >
+            <option ng-repeat="(name,profile) in profiles" ng-value="name">{{name}}</option>
+          </select>
+        </div>
       </div>
     </div>
 

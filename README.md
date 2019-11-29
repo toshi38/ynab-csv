@@ -15,6 +15,17 @@ http://aniav.github.io/ynab-csv/
 3. For each column in the YNAB data file, choose which column you want to pull from your source data file.
 4. Save the new YNAB file and you are ready to import that right into YNAB!
 
+## Multiple Profiles
+
+`ynab-csv` stores your settings in the browser under a profile named `default`. Each time you change your column mapping or other
+settings, the new settings will be saved.
+
+A new profile can be created by adding `?profile=<profile name>` to the link above. For example, `?profile=paypal` would create a
+new profile named `paypal`. Then, column mappings will be saved to that profile instead.
+
+You can switch between profiles by selecting the profile from the dropdown or by typing `?profile=<profile name>` directly in
+the browser address bar.
+
 ## Privacy
 
 Your data never leaves your computer. All the processing happens locally. This is part of the reason Firefox and Safari have issues saving the new file.
