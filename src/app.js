@@ -12,6 +12,17 @@ var encodings = [
 ]
 var old_ynab_cols = ["Date", "Payee", "Memo", "Outflow", "Inflow"];
 var new_ynab_cols = ["Date", "Payee", "Memo", "Amount"];
+var defaultProfile = {
+  columnFormat: old_ynab_cols,
+  chosenColumns: old_ynab_cols.reduce(function (acc, val) {
+    acc[val] = val;
+    return acc;
+  }, {}),
+  chosenEncoding: "UTF-8"
+};
+var defaultProfiles = {
+  "default profile": defaultProfile
+};
 
 Date.prototype.yyyymmdd = function () {
   var mm = this.getMonth() + 1; // getMonth() is zero-based
@@ -90,27 +101,49 @@ angular.element(document).ready(function () {
     }
   ]);
   // Application code
-  angular.module("app").controller("ParseController", function ($scope) {
+  angular.module("app")
+  .config(function($locationProvider) {
+    $locationProvider.html5Mode({
+      enabled: true,
+      requireBase: false,
+    }).hashPrefix('!');
+  })
+  .controller("ParseController", function ($scope, $location) {
     $scope.angular_loaded = true;
 
     $scope.setInitialScopeState = function () {
-      $scope.ynab_cols = JSON.parse(localStorage.getItem('columnFormat')) || old_ynab_cols;
+      $scope.profileName = ($location.search().profile || localStorage.getItem('profileName') || 'default profile').toLowerCase();
+      $scope.profiles = JSON.parse(localStorage.getItem('profiles')) || defaultProfiles;
+      if(!$scope.profiles[$scope.profileName]) {
+        $scope.profiles[$scope.profileName] = defaultProfile;
+      }
+      $scope.profile = $scope.profiles[$scope.profileName];
+      $scope.ynab_cols = $scope.profile.columnFormat;
       $scope.data = {};
-      $scope.ynab_map = JSON.parse(localStorage.getItem('chosenColumns')) || $scope.ynab_cols.reduce(function (acc, val) {
-        acc[val] = val;
-        return acc;
-      }, {});
+      $scope.ynab_map = $scope.profile.chosenColumns
       $scope.inverted_outflow = false;
       $scope.file = {
         encodings: encodings,
-        chosenEncoding: localStorage.getItem('chosenEncoding') || "UTF-8"
+        chosenEncoding: $scope.profile.chosenEncoding
       };
       $scope.data_object = new DataObject();
     }
 
     $scope.setInitialScopeState();
+    $scope.profileChosen = function (profileName) {
+      $location.search('profile', profileName);
+      $scope.profile = $scope.profiles[$scope.profileName];
+      $scope.ynab_cols = $scope.profile.columnFormat;
+      $scope.ynab_map = $scope.profile.chosenColumns
+      localStorage.setItem('profileName', profileName);
+    };
     $scope.encodingChosen = function (encoding) {
-      localStorage.setItem('chosenEncoding', encoding);
+      $scope.profile.chosenEncoding = encoding
+      localStorage.setItem('profiles', JSON.stringify($scope.profiles));
+    };
+    $scope.nonDefaultProfilesExist = function() {
+      console.log(Object.keys($scope.profiles));
+      return Object.keys($scope.profiles).length > 1;
     };
     $scope.toggleColumnFormat = function () {
       if ($scope.ynab_cols == new_ynab_cols) {
@@ -118,7 +151,8 @@ angular.element(document).ready(function () {
       } else {
         $scope.ynab_cols = new_ynab_cols;
       }
-      localStorage.setItem('columnFormat', JSON.stringify($scope.ynab_cols));
+      $scope.profile.columnFormat = $scope.ynab_cols
+      localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     }
 
     $scope.$watch("data.source", function (newValue, oldValue) {
@@ -135,7 +169,8 @@ angular.element(document).ready(function () {
     $scope.$watch(
       "ynab_map",
       function (newValue, oldValue) {
-        localStorage.setItem('chosenColumns', JSON.stringify(newValue));
+        $scope.profile.chosenColumns = newValue;
+        localStorage.setItem('profiles', JSON.stringify($scope.profiles));
         $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, newValue, $scope.inverted_outflow);
       },
       true

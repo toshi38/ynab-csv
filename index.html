@@ -3,8 +3,14 @@
 <html lang="en">
   <head>
     <title>YNAB CSV Converter</title>
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap.min.css">
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css">
+    <link
+      rel="stylesheet"
+      href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css"
+    />
 
     <link rel="stylesheet" type="text/css" href="./app.css" />
     <script type="text/javascript" src="lib/papaparse.min.js"></script>
@@ -12,83 +18,140 @@
 
     <script src="src/data_object.js"></script>
     <script src="src/app.js"></script>
-    <script src="https://browser.sentry-cdn.com/4.4.2/bundle.min.js" crossorigin="anonymous"></script>
+    <script
+      src="https://browser.sentry-cdn.com/4.4.2/bundle.min.js"
+      crossorigin="anonymous"
+    ></script>
     <script>
-      Sentry.init({ dsn: 'https://9984f4ed07f54d7ca6107525f0d990a1@sentry.io/1362308' });
+      Sentry.init({
+        dsn: "https://9984f4ed07f54d7ca6107525f0d990a1@sentry.io/1362308"
+      });
     </script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
 
-    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-112130993-1"></script>
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=UA-112130993-1"
+    ></script>
     <script>
       window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
 
-      gtag('config', 'UA-112130993-1');
+      gtag("config", "UA-112130993-1");
     </script>
   </head>
-  <body ng-controller='ParseController' ng-class="{angular_loaded: angular_loaded}">
-
-    <div id='header_nav' class='show_on_load'>
-      <div class='container'>
+  <body
+    ng-controller="ParseController"
+    ng-class="{angular_loaded: angular_loaded}"
+  >
+    <div id="header_nav" class="show_on_load">
+      <div class="container">
         <!-- <h1>YNAB CSV</h1> -->
-        <div class='pull-right' ng-if='data_object.base_json'>
-          <div class='btn btn-default' ng-click='reloadApp()'><i class='fa fa-refresh'></i> Load a different file</div>
-          <div class='btn btn-primary' ng-click='downloadFile()'><i class='fa fa-cloud-download'></i> Save YNAB Data</div>
+        <div class="pull-right" ng-if="data_object.base_json">
+          <div class="btn btn-default" ng-click="reloadApp()">
+            <i class="fa fa-refresh"></i> Load a different file
+          </div>
+          <div class="btn btn-primary" ng-click="downloadFile()">
+            <i class="fa fa-cloud-download"></i> Save YNAB Data
+          </div>
         </div>
-        <a href='https://github.com/aniav/ynab-csv/issues/new' target='_blank' class='btn btn-default'><i class='fa fa-exclamation-circle'></i> Report an issue</a>
+        <div class="form-inline">
+          <a
+            href="https://github.com/aniav/ynab-csv/issues/new"
+            target="_blank"
+            class="btn btn-default"
+            ><i class="fa fa-exclamation-circle"></i> Report an issue</a
+          >
+        </div>
       </div>
     </div>
 
-    <div dropzone='data.source' encoding="{{file.chosenEncoding}}">
-      <div class='container show_on_load'>
-        <br>
-        <div id='upload_wrapper' ng-if='!data_object.base_json'>
-          <div id='drop_text'>Drop File</div>
-          <br>
+    <div dropzone="data.source" encoding="{{file.chosenEncoding}}">
+      <div class="container show_on_load">
+        <br />
+        <div id="upload_wrapper" ng-if="!data_object.base_json">
+          <div id="drop_text">Drop File</div>
+          <br />
           <form class="form-inline">
             <!-- <div class='btn btn-primary'>Or Choose</div> -->
-            <div class='fileUpload btn btn-primary'>
-              <span>Or Choose <i class='fa fa-folder-open'></i></span>
-              <input id='file' type='file' fileread='data.source' encoding="{{file.chosenEncoding}}"/>
+            <div class="fileUpload btn btn-primary">
+              <span>Or Choose <i class="fa fa-folder-open"></i></span>
+              <input
+                id="file"
+                type="file"
+                fileread="data.source"
+                encoding="{{file.chosenEncoding}}"
+              />
             </div>
 
             <div class="form-group">
-              <label class="sr-only" for="file.encoding">File encoding</label>
-              <select ng-model="file.chosenEncoding"
-                      ng-options="enc for enc in file.encodings track by enc"
-                      ng-change="encodingChosen(file.chosenEncoding)"
-                      class="form-control">
+              <select
+                ng-model="file.chosenEncoding"
+                ng-options="enc for enc in file.encodings track by enc"
+                ng-change="encodingChosen(file.chosenEncoding)"
+                class="form-control"
+              >
               </select>
+            </div>
+              <div class="form-group" ng-if="nonDefaultProfilesExist()">
+                <select
+                  name="ngvalueselect"
+                  ng-model="profileName"
+                  class="form-control"
+                  ng-change="profileChosen(profileName)"
+                >
+                <option ng-repeat="(name,profile) in profiles" ng-value="name"
+                  >{{name}}</option>
+                </select>
+              </div>
             </div>
           </form>
         </div>
 
-        <div id='tool_wrapper' ng-if='data_object.base_json'>
+        <div id="tool_wrapper" ng-if="data_object.base_json">
           <div class="panel panel-default">
             <div class="panel-heading">
-              <div ng-show="ynab_cols.indexOf('Inflow') != -1 && ynab_map['Inflow'] == ynab_map['Outflow']" class="btn btn-default pull-right" ng-click="invert_flows()">
+              <div
+                ng-show="ynab_cols.indexOf('Inflow') != -1 && ynab_map['Inflow'] == ynab_map['Outflow']"
+                class="btn btn-default pull-right"
+                ng-click="invert_flows()"
+              >
                 <i class="fa fa-exchange"></i> Invert flows
               </div>
-              <div class="btn btn-default pull-right" ng-click="toggleColumnFormat()">
+              <div
+                class="btn btn-default pull-right"
+                ng-click="toggleColumnFormat()"
+              >
                 <i class="fa fa-exchange"></i> Toggle column format
               </div>
               <h4>YNAB Data <small>(1st 10 rows)</small></h4>
               <div class="clearfix"></div>
             </div>
-            <div class='table-container'>
-              <table class='table table-striped'>
+            <div class="table-container">
+              <table class="table table-striped">
                 <thead>
                   <tr class="form-row">
-                    <th scope="col" class="form-group" ng-repeat='col in ynab_cols'>
+                    <th
+                      scope="col"
+                      class="form-group"
+                      ng-repeat="col in ynab_cols"
+                    >
                       <label for="id-{{col}}">{{col}}</label>
-                      <select class="form-control" id="id-{{col}}" ng-model="ynab_map[col]" ng-options="f for f in data_object.fields()"></select>
+                      <select
+                        class="form-control"
+                        id="id-{{col}}"
+                        ng-model="ynab_map[col]"
+                        ng-options="f for f in data_object.fields()"
+                      ></select>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr ng-repeat='row in preview'>
-                    <td ng-repeat='col in ynab_cols'>
+                  <tr ng-repeat="row in preview">
+                    <td ng-repeat="col in ynab_cols">
                       {{row[col]}}
                     </td>
                   </tr>
@@ -98,29 +161,34 @@
           </div>
 
           <div class="panel panel-default">
-            <div class="panel-heading"><strong>Source Data</strong> <em>(1st 10 rows)</em></div>
-            <div class='table-container'>
-              <table class='table'>
+            <div class="panel-heading">
+              <strong>Source Data</strong> <em>(1st 10 rows)</em>
+            </div>
+            <div class="table-container">
+              <table class="table">
                 <thead>
                   <tr>
-                    <th ng-repeat='col in data_object.fields()'>{{col}}</th>
+                    <th ng-repeat="col in data_object.fields()">{{col}}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr ng-repeat='row in data_object.rows() | limitTo:10'>
-                    <td ng-repeat='col in data_object.fields()'>{{row[col]}}</td>
+                  <tr ng-repeat="row in data_object.rows() | limitTo:10">
+                    <td ng-repeat="col in data_object.fields()">
+                      {{row[col]}}
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
-
         </div>
       </div>
     </div>
 
-    <div id='angular_is_loading'>
-      <div class='loading_text'><i class="fa fa-spinner fa-spin"></i> Loading...</div>
+    <div id="angular_is_loading">
+      <div class="loading_text">
+        <i class="fa fa-spinner fa-spin"></i> Loading...
+      </div>
     </div>
   </body>
 </html>
