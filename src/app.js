@@ -21,7 +21,7 @@ var defaultProfile = {
   chosenEncoding: "UTF-8"
 };
 var defaultProfiles = {
-  default: defaultProfile
+  "default profile": defaultProfile
 };
 
 Date.prototype.yyyymmdd = function () {
@@ -112,7 +112,7 @@ angular.element(document).ready(function () {
     $scope.angular_loaded = true;
 
     $scope.setInitialScopeState = function () {
-      $scope.profileName = ($location.search().profile || localStorage.getItem('profileName') || 'default').toLowerCase();
+      $scope.profileName = ($location.search().profile || localStorage.getItem('profileName') || 'default profile').toLowerCase();
       $scope.profiles = JSON.parse(localStorage.getItem('profiles')) || defaultProfiles;
       if(!$scope.profiles[$scope.profileName]) {
         $scope.profiles[$scope.profileName] = defaultProfile;
@@ -140,6 +140,10 @@ angular.element(document).ready(function () {
     $scope.encodingChosen = function (encoding) {
       $scope.profile.chosenEncoding = encoding
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
+    };
+    $scope.nonDefaultProfilesExist = function() {
+      console.log(Object.keys($scope.profiles));
+      return Object.keys($scope.profiles).length > 1;
     };
     $scope.toggleColumnFormat = function () {
       if ($scope.ynab_cols == new_ynab_cols) {
