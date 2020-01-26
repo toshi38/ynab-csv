@@ -145,7 +145,9 @@
                         id="id-{{col}}"
                         ng-model="ynab_map[col]"
                         ng-options="f for f in data_object.fields()"
-                      ></select>
+                      >
+                      <option value="">Choose option</option>
+                    </select>
                     </th>
                   </tr>
                 </thead>

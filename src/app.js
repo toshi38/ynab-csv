@@ -134,7 +134,7 @@ angular.element(document).ready(function () {
       $location.search('profile', profileName);
       $scope.profile = $scope.profiles[$scope.profileName];
       $scope.ynab_cols = $scope.profile.columnFormat;
-      $scope.ynab_map = $scope.profile.chosenColumns
+      $scope.ynab_map = $scope.profile.chosenColumns;
       localStorage.setItem('profileName', profileName);
     };
     $scope.encodingChosen = function (encoding) {
