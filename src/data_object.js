@@ -67,6 +67,7 @@ window.DataObject = class DataObject {
             if (cell) {
               switch (col) {
                 case "Outflow":
+
                   if (lookup['Outflow'] == lookup['Inflow']) {
                     if (!inverted_outflow) {
                       tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
@@ -74,7 +75,7 @@ window.DataObject = class DataObject {
                       tmp_row[col] = cell.startsWith('-') ? "" : cell;
                     }
                   } else {
-                    tmp_row[col] = cell;
+                    tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : cell;
                   }
                   break;
                 case "Inflow":
