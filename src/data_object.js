@@ -137,7 +137,11 @@ window.DataObject = class DataObject {
       var row_values;
       row_values = [];
       ynab_cols.forEach(function (col) {
-        return row_values.push(row[col]);
+        var row_value;
+        row_value = row[col] || "";
+        // escape text which might already have a quote in it
+        row_value = row_value.replace(/"/g, '""');
+        return row_values.push(row_value);
       });
       return (string += '"' + row_values.join('","') + '"\n');
     });
