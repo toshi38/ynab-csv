@@ -11,7 +11,10 @@ var encodings = [
   "replacement", "UTF-16BE", "UTF-16LE", "x-user-defined"
 ]
 var delimiters = [
-  "auto",",",";","|"
+  "auto",
+  ",",
+  ";",
+  "|"
 ]
 var old_ynab_cols = ["Date", "Payee", "Memo", "Outflow", "Inflow"];
 var new_ynab_cols = ["Date", "Payee", "Memo", "Amount"];
@@ -22,7 +25,7 @@ var defaultProfile = {
     return acc;
   }, {}),
   chosenEncoding: "UTF-8",
-  chosenDelimiter: ","
+  chosenDelimiter: "auto"
 };
 var defaultProfiles = {
   "default profile": defaultProfile
@@ -128,9 +131,9 @@ angular.element(document).ready(function () {
       $scope.inverted_outflow = false;
       $scope.file = {
         encodings: encodings,
-		delimiters: delimiters,
-        chosenEncoding: $scope.profile.chosenEncoding,
-		chosenDelimiter: $scope.profile.chosenDelimiter
+        delimiters: delimiters,
+        chosenEncoding: $scope.profile.chosenEncoding || "UTF-8",
+        chosenDelimiter: $scope.profile.chosenDelimiter || "auto"
       };
       $scope.data_object = new DataObject();
     }
@@ -147,7 +150,7 @@ angular.element(document).ready(function () {
       $scope.profile.chosenEncoding = encoding
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     };
-	$scope.delimiterChosen = function (delimiter) {
+    $scope.delimiterChosen = function (delimiter) {
       $scope.profile.chosenDelimiter = delimiter
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     };
@@ -168,10 +171,10 @@ angular.element(document).ready(function () {
     $scope.$watch("data.source", function (newValue, oldValue) {
       if (newValue && newValue.length > 0) {
         if ($scope.file.chosenDelimiter == "auto") {
-			$scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding);
-		} else {
-			$scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding, $scope.file.chosenDelimiter);
-		}			
+          $scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding);
+        } else {
+          $scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding, $scope.file.chosenDelimiter);
+        }
         $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
       }
     });

@@ -84,7 +84,7 @@
                 type="file"
                 fileread="data.source"
                 encoding="{{file.chosenEncoding}}"
-				delimiter="{{file.chosenDelimiter}}"
+                delimiter="{{file.chosenDelimiter}}"
               />
             </div>
             <div class="form-group">Encoding
@@ -96,7 +96,7 @@
               >
               </select>
             </div>
-			<div class="form-group">Delimiter
+            <div class="form-group">Delimiter
               <select
                 ng-model="file.chosenDelimiter"
                 ng-options="enc for enc in file.delimiters track by enc"
