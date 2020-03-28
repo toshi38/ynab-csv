@@ -155,7 +155,6 @@ angular.element(document).ready(function () {
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     };
     $scope.nonDefaultProfilesExist = function() {
-      console.log(Object.keys($scope.profiles));
       return Object.keys($scope.profiles).length > 1;
     };
     $scope.toggleColumnFormat = function () {
