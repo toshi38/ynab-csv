@@ -69,7 +69,7 @@
       </div>
     </div>
 
-    <div dropzone="data.source" encoding="{{file.chosenEncoding}}">
+    <div dropzone="data.source" encoding="{{file.chosenEncoding}}" delimiter="{{file.chosenDelimiter}}">
       <div class="container show_on_load">
         <br />
         <div id="upload_wrapper" ng-if="!data_object.base_json">
@@ -84,14 +84,23 @@
                 type="file"
                 fileread="data.source"
                 encoding="{{file.chosenEncoding}}"
+				delimiter="{{file.chosenDelimiter}}"
               />
             </div>
-
-            <div class="form-group">
+            <div class="form-group">Encoding
               <select
                 ng-model="file.chosenEncoding"
                 ng-options="enc for enc in file.encodings track by enc"
                 ng-change="encodingChosen(file.chosenEncoding)"
+                class="form-control"
+              >
+              </select>
+            </div>
+			<div class="form-group">Delimiter
+              <select
+                ng-model="file.chosenDelimiter"
+                ng-options="enc for enc in file.delimiters track by enc"
+                ng-change="delimiterChosen(file.chosenDelimiter)"
                 class="form-control"
               >
               </select>

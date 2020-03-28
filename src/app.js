@@ -10,6 +10,9 @@ var encodings = [
   "gb18030", "Big5", "EUC-JP", "ISO-2022-JP", "Shift_JIS", "EUC-KR",
   "replacement", "UTF-16BE", "UTF-16LE", "x-user-defined"
 ]
+var delimiters = [
+  "auto",",",";","|"
+]
 var old_ynab_cols = ["Date", "Payee", "Memo", "Outflow", "Inflow"];
 var new_ynab_cols = ["Date", "Payee", "Memo", "Amount"];
 var defaultProfile = {
@@ -18,7 +21,8 @@ var defaultProfile = {
     acc[val] = val;
     return acc;
   }, {}),
-  chosenEncoding: "UTF-8"
+  chosenEncoding: "UTF-8",
+  chosenDelimiter: ","
 };
 var defaultProfiles = {
   "default profile": defaultProfile
@@ -124,7 +128,9 @@ angular.element(document).ready(function () {
       $scope.inverted_outflow = false;
       $scope.file = {
         encodings: encodings,
-        chosenEncoding: $scope.profile.chosenEncoding
+		delimiters: delimiters,
+        chosenEncoding: $scope.profile.chosenEncoding,
+		chosenDelimiter: $scope.profile.chosenDelimiter
       };
       $scope.data_object = new DataObject();
     }
@@ -139,6 +145,10 @@ angular.element(document).ready(function () {
     };
     $scope.encodingChosen = function (encoding) {
       $scope.profile.chosenEncoding = encoding
+      localStorage.setItem('profiles', JSON.stringify($scope.profiles));
+    };
+	$scope.delimiterChosen = function (delimiter) {
+      $scope.profile.chosenDelimiter = delimiter
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     };
     $scope.nonDefaultProfilesExist = function() {
@@ -157,7 +167,11 @@ angular.element(document).ready(function () {
 
     $scope.$watch("data.source", function (newValue, oldValue) {
       if (newValue && newValue.length > 0) {
-        $scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding);
+        if ($scope.file.chosenDelimiter == "auto") {
+			$scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding);
+		} else {
+			$scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding, $scope.file.chosenDelimiter);
+		}			
         $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
       }
     });

@@ -4,12 +4,37 @@ window.DataObject = class DataObject {
   constructor() {
     this.base_json = null;
   }
+  
   // Parse base csv file as JSON. This will be easier to work with.
   // It uses http://papaparse.com/ for handling parsing
   parse_csv(csv, encoding) {
     let existingHeaders = [];
     return (this.base_json = Papa.parse(csv, {
-      skipEmptyLines: true,
+	  skipEmptyLines: true,
+      header: true,
+      transformHeader: function(header) {
+        if (header.trim().length == 0) {
+          header = "Unnamed column";
+        }
+        if (existingHeaders.indexOf(header) != -1) {
+          let new_header = header;
+          let counter = 0;
+          while(existingHeaders.indexOf(new_header) != -1){
+            counter++;
+            new_header = header + " (" + counter + ")";
+          }
+          header = new_header;
+        }
+        existingHeaders.push(header);
+        return header;
+      }
+    }));
+  }
+  parse_csv(csv, encoding, delimiter) {
+    let existingHeaders = [];
+    return (this.base_json = Papa.parse(csv, {
+      delimiter: delimiter,
+	  skipEmptyLines: true,
       header: true,
       transformHeader: function(header) {
         if (header.trim().length == 0) {
