@@ -82,8 +82,11 @@ angular.element(document).ready(function () {
             var efct;
             element.addClass("dragging");
             event.preventDefault();
-            efct = event.dataTransfer.effectAllowed;
-            event.dataTransfer.dropEffect =
+            event.stopPropagation();
+            var dataTransfer;
+            dataTransfer = (event.dataTransfer || event.originalEvent.dataTransfer)
+            efct = dataTransfer.effectAllowed;
+            dataTransfer.dropEffect =
               "move" === efct || "linkMove" === efct ? "move" : "copy";
           });
           element.bind("dragleave", function (event) {
@@ -101,7 +104,8 @@ angular.element(document).ready(function () {
                 scope.dropzone = loadEvent.target.result;
               });
             };
-            reader.readAsText(event.dataTransfer.files[0], attributes.encoding);
+            file = (event.dataTransfer || event.originalEvent.dataTransfer).files[0];
+            reader.readAsText(file, attributes.encoding);
           });
           element.bind("paste", function (event) {
             var items = (event.clipboardData || event.originalEvent.clipboardData).items;
