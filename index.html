@@ -130,6 +130,17 @@
                     >
                     </select>
                   </div>
+                  <div class="form-group">
+                    <label for="start_row">Start at row</label>
+                    <input
+                      id="start_row"
+                      type="number"
+                      ng-model="file.startAtRow"
+                      ng-change="startRowSet(file.startAtRow)"
+                      class="form-control"
+                    >
+                    </select>
+                  </div>
                   <div class="form-group" ng-if="nonDefaultProfilesExist()">
                     <label for="profile">Bank profile</label>
                     <select

@@ -7,11 +7,17 @@ window.DataObject = class DataObject {
 
   // Parse base csv file as JSON. This will be easier to work with.
   // It uses http://papaparse.com/ for handling parsing
-  parse_csv(csv, encoding) {
+  parseCsv(csv, encoding, startAtRow=1, delimiter=null) {
     let existingHeaders = [];
-    return (this.base_json = Papa.parse(csv, {
-    skipEmptyLines: true,
+    let config = {
       header: true,
+      skipEmptyLines: 'greedy',
+      beforeFirstChunk: function(chunk) {
+        var rows = chunk.split("\n");
+        var startIndex = startAtRow - 1;
+        rows = rows.slice(startIndex);
+        return rows.join("\n");
+      },
       transformHeader: function(header) {
         if (header.trim().length == 0) {
           header = "Unnamed column";
@@ -28,31 +34,12 @@ window.DataObject = class DataObject {
         existingHeaders.push(header);
         return header;
       }
-    }));
-  }
-  parse_csv(csv, encoding, delimiter) {
-    let existingHeaders = [];
-    return (this.base_json = Papa.parse(csv, {
-      delimiter: delimiter,
-	  skipEmptyLines: true,
-      header: true,
-      transformHeader: function(header) {
-        if (header.trim().length == 0) {
-          header = "Unnamed column";
-        }
-        if (existingHeaders.indexOf(header) != -1) {
-          let new_header = header;
-          let counter = 0;
-          while(existingHeaders.indexOf(new_header) != -1){
-            counter++;
-            new_header = header + " (" + counter + ")";
-          }
-          header = new_header;
-        }
-        existingHeaders.push(header);
-        return header;
-      }
-    }));
+    }
+    if (delimiter !== null) {
+      config.delimiter = delimiter
+    }
+    var result = Papa.parse(csv, config);
+    return (this.base_json = result);
   }
 
   fields() {

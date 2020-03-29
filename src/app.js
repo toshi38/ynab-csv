@@ -25,7 +25,8 @@ var defaultProfile = {
     return acc;
   }, {}),
   chosenEncoding: "UTF-8",
-  chosenDelimiter: "auto"
+  chosenDelimiter: "auto",
+  startAtRow: 1
 };
 var defaultProfiles = {
   "default profile": defaultProfile
@@ -153,7 +154,8 @@ angular.element(document).ready(function () {
         encodings: encodings,
         delimiters: delimiters,
         chosenEncoding: $scope.profile.chosenEncoding || "UTF-8",
-        chosenDelimiter: $scope.profile.chosenDelimiter || "auto"
+        chosenDelimiter: $scope.profile.chosenDelimiter || "auto",
+        startAtRow: $scope.profile.startAtRow
       };
       $scope.data_object = new DataObject();
     }
@@ -167,11 +169,15 @@ angular.element(document).ready(function () {
       localStorage.setItem('profileName', profileName);
     };
     $scope.encodingChosen = function (encoding) {
-      $scope.profile.chosenEncoding = encoding
+      $scope.profile.chosenEncoding = encoding;
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     };
     $scope.delimiterChosen = function (delimiter) {
-      $scope.profile.chosenDelimiter = delimiter
+      $scope.profile.chosenDelimiter = delimiter;
+      localStorage.setItem('profiles', JSON.stringify($scope.profiles));
+    };
+    $scope.startRowSet = function (startAtRow) {
+      $scope.profile.startAtRow = startAtRow;
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     };
     $scope.nonDefaultProfilesExist = function() {
@@ -189,9 +195,9 @@ angular.element(document).ready(function () {
     $scope.$watch("data.source", function (newValue, oldValue) {
       if (newValue && newValue.length > 0) {
         if ($scope.file.chosenDelimiter == "auto") {
-          $scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding);
+          $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow);
         } else {
-          $scope.data_object.parse_csv(newValue, $scope.file.chosenEncoding, $scope.file.chosenDelimiter);
+          $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.file.chosenDelimiter);
         }
         $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
       }
