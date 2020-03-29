@@ -103,6 +103,22 @@ angular.element(document).ready(function () {
             };
             reader.readAsText(event.dataTransfer.files[0], attributes.encoding);
           });
+          element.bind("paste", function (event) {
+            var items = (event.clipboardData || event.originalEvent.clipboardData).items;
+            for (var i = 0; i < items.length; i++) {
+              if (items[i].type == 'text/plain') {
+                data = items[i];
+                break;
+              }
+            }
+            if (!data) return;
+
+            data.getAsString(function(text) {
+              scope.$apply(function () {
+                scope.dropzone = text;
+              });
+            });
+          });
         }
       };
     }
@@ -165,8 +181,7 @@ angular.element(document).ready(function () {
       }
       $scope.profile.columnFormat = $scope.ynab_cols
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
-    }
-
+    };
     $scope.$watch("data.source", function (newValue, oldValue) {
       if (newValue && newValue.length > 0) {
         if ($scope.file.chosenDelimiter == "auto") {

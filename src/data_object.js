@@ -4,13 +4,13 @@ window.DataObject = class DataObject {
   constructor() {
     this.base_json = null;
   }
-  
+
   // Parse base csv file as JSON. This will be easier to work with.
   // It uses http://papaparse.com/ for handling parsing
   parse_csv(csv, encoding) {
     let existingHeaders = [];
     return (this.base_json = Papa.parse(csv, {
-	  skipEmptyLines: true,
+    skipEmptyLines: true,
       header: true,
       transformHeader: function(header) {
         if (header.trim().length == 0) {
@@ -140,7 +140,7 @@ window.DataObject = class DataObject {
         var row_value;
         row_value = row[col] || "";
         // escape text which might already have a quote in it
-        row_value = row_value.replace(/"/g, '""');
+        row_value = row_value.replace(/"/g, '""').trim();
         return row_values.push(row_value);
       });
       return (string += '"' + row_values.join('","') + '"\n');
