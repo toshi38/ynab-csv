@@ -11,7 +11,7 @@ window.DataObject = class DataObject {
     let existingHeaders = [];
     let config = {
       header: true,
-      skipEmptyLines: 'greedy',
+      skipEmptyLines: true,
       beforeFirstChunk: function(chunk) {
         var rows = chunk.split("\n");
         var startIndex = startAtRow - 1;
