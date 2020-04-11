@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "open http://localhost:3000/ && node server.js"
+    "start": "open http://localhost:3000/ && node server.js",
+    "bs": "browser-sync . -w"
   },
   "repository": {
     "type": "git",
@@ -23,5 +24,8 @@
   "bugs": {
     "url": "https://github.com/aniav/ynab-csv/issues"
   },
-  "homepage": "https://github.com/aniav/ynab-csv"
+  "homepage": "https://github.com/aniav/ynab-csv",
+  "devDependencies": {
+    "browser-sync": "^2.26.7"
+  }
 }
