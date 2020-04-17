@@ -45,6 +45,7 @@ If you have any other issues or suggestions, go to https://github.com/aniav/ynab
 2. `cd` into project
 3. Run `npm install`   # You will need to install node and npm if it is not already
 4. Run `npm start`   # when running in Windows, modify package.json and replace "open" with "start"
+  * Optional: run `npm run bs` instead to use [Browsersync](https://browsersync.io/)
 5. Make your changes locally and test them to make sure they work
 6. Commit those changes and push to your forked repository
 7. Make a new pull request
