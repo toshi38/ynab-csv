@@ -7,7 +7,7 @@ window.DataObject = class DataObject {
 
   // Parse base csv file as JSON. This will be easier to work with.
   // It uses http://papaparse.com/ for handling parsing
-  parseCsv(csv, encoding, startAtRow=1, delimiter=null) {
+  parseCsv(csv, encoding, startAtRow=1, extraRow=false, delimiter=null) {
     let existingHeaders = [];
     let config = {
       header: true,
@@ -19,7 +19,7 @@ window.DataObject = class DataObject {
         return rows.join("\n");
       },
       transformHeader: function(header) {
-        if (header.trim().length == 0) {
+        if (header.trim().length == 0 || extraRow) {
           header = "Unnamed column";
         }
         if (existingHeaders.indexOf(header) != -1) {

@@ -136,6 +136,16 @@
                     >
                     </select>
                   </div>
+                  <div class="form-group">
+                    <label for="extra_row">Add headers to my CSV</label>
+                    <input
+                        id="extra_row"
+                        type="checkbox"
+                        ng-model="file.extraRow"
+                        ng-change="extraRowSet(file.extraRow)"
+                        class="form-control"
+                    >
+                  </div>                
                   <div class="form-group" ng-if="nonDefaultProfilesExist()">
                     <label for="profile">Bank profile</label>
                     <select
