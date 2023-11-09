@@ -16,10 +16,16 @@ window.DataObject = class DataObject {
         var rows = chunk.split("\n");
         var startIndex = startAtRow - 1;
         rows = rows.slice(startIndex);
+
+        if (extraRow) {
+        // If first row duplication is turned on, we add the first row to the top of the set again.
+          rows.unshift(rows[0]);
+        }
+
         return rows.join("\n");
       },
       transformHeader: function(header) {
-        if (header.trim().length == 0 || extraRow) {
+        if (header.trim().length == 0) {
           header = "Unnamed column";
         }
         if (existingHeaders.indexOf(header) != -1) {
@@ -38,7 +44,16 @@ window.DataObject = class DataObject {
     if (delimiter !== null) {
       config.delimiter = delimiter
     }
+
     var result = Papa.parse(csv, config);
+
+    /*if (extraRow) {
+      var firstRow = result.data[0];
+      console.log(result.data);
+      for(var key in firstRow) {
+        alert(key);
+      }
+    }*/
     return (this.base_json = result);
   }
 
