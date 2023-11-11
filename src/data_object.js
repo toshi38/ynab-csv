@@ -47,13 +47,6 @@ window.DataObject = class DataObject {
 
     var result = Papa.parse(csv, config);
 
-    /*if (extraRow) {
-      var firstRow = result.data[0];
-      console.log(result.data);
-      for(var key in firstRow) {
-        alert(key);
-      }
-    }*/
     return (this.base_json = result);
   }
 
