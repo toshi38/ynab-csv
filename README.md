@@ -28,12 +28,8 @@ the browser address bar.
 
 ## Privacy
 
-Your data never leaves your computer. All the processing happens locally. This is part of the reason Firefox and Safari have issues saving the new file.
+Your data never leaves your computer. All the processing happens locally.
 
-
-## Known Issues
-
-**Safari** will save the file with the filename as `Unknown`. For best support use **Chrome** for now.
 
 ## Reporting Issues
 

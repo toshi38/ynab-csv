@@ -17,7 +17,7 @@
     "csv"
   ],
   "dependencies": {
-    "express": "^4.16.4"
+    "express": "^4.18.2"
   },
   "author": "Ryan Hall",
   "license": "MIT",
@@ -26,6 +26,6 @@
   },
   "homepage": "https://github.com/aniav/ynab-csv",
   "devDependencies": {
-    "browser-sync": "^2.26.7"
+    "browser-sync": "^2.29.3"
   }
 }
