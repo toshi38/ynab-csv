@@ -26,7 +26,8 @@ var defaultProfile = {
   }, {}),
   chosenEncoding: "UTF-8",
   chosenDelimiter: "auto",
-  startAtRow: 1
+  startAtRow: 1,
+  extraRow: false
 };
 var defaultProfiles = {
   "default profile": defaultProfile
@@ -155,7 +156,8 @@ angular.element(document).ready(function () {
         delimiters: delimiters,
         chosenEncoding: $scope.profile.chosenEncoding || "UTF-8",
         chosenDelimiter: $scope.profile.chosenDelimiter || "auto",
-        startAtRow: $scope.profile.startAtRow
+        startAtRow: $scope.profile.startAtRow,
+        extraRow: $scope.profile.extraRow || false
       };
       $scope.data_object = new DataObject();
     }
@@ -180,6 +182,10 @@ angular.element(document).ready(function () {
       $scope.profile.startAtRow = startAtRow;
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     };
+    $scope.extraRowSet = function (extraRow) {
+      $scope.profile.extraRow = extraRow;
+      localStorage.setItem('profiles', JSON.stringify($scope.profiles));
+    };
     $scope.nonDefaultProfilesExist = function() {
       return Object.keys($scope.profiles).length > 1;
     };
@@ -195,9 +201,9 @@ angular.element(document).ready(function () {
     $scope.$watch("data.source", function (newValue, oldValue) {
       if (newValue && newValue.length > 0) {
         if ($scope.file.chosenDelimiter == "auto") {
-          $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow);
+          $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow);
         } else {
-          $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.file.chosenDelimiter);
+          $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow, $scope.file.chosenDelimiter);
         }
         $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
       }
