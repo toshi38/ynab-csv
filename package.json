@@ -22,8 +22,10 @@
     "url": "https://github.com/aniav/ynab-csv/issues"
   },
   "homepage": "https://github.com/aniav/ynab-csv",
-  "devDependencies": {
-    "browser-sync": "^3.0.2",
+  "dependencies": {
     "http-server": "^14.1.1"
+  },
+  "devDependencies": {
+    "browser-sync": "^3.0.2"
   }
 }

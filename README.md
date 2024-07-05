@@ -24,6 +24,15 @@ new profile named `paypal`. Then, column mappings will be saved to that profile 
 You can switch between profiles by selecting the profile from the dropdown or by typing `?profile=<profile name>` directly in
 the browser address bar.
 
+## Running Locally
+
+To run the project locally using Docker Compose:
+
+1. Clone this repository: `git clone https://github.com/aniav/ynab-csv.git`
+2. Navigate to the cloned directory: `cd ynab-csv`
+3. Run the following command: `docker-compose up -d`
+4. Open your web browser and navigate to http://localhost:3000
+
 ## Privacy
 
 Your data never leaves your computer. All the processing happens locally.
