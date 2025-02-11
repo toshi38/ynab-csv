@@ -106,7 +106,7 @@ window.DataObject = class DataObject {
                       tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
                     }
                   } else {
-                    tmp_row[col] = cell;
+                    tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : cell;
                   }
                   break;
                 default:
