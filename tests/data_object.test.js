@@ -129,4 +129,176 @@ describe('DataObject', () => {
       expect(dataObject.rows()).toEqual(mockRows);
     });
   });
+
+  describe('Data Conversion - converted_json()', () => {
+    beforeEach(() => {
+      dataObject.base_json = {
+        data: [
+          { 'Date': '2024-01-01', 'Description': 'Purchase', 'Amount': '-50.00', 'Notes': 'Groceries' },
+          { 'Date': '2024-01-02', 'Description': 'Salary', 'Amount': '1000.00', 'Notes': 'Monthly pay' },
+          { 'Date': '2024-01-03', 'Description': 'Refund', 'Amount': '25.50', 'Notes': 'Return' }
+        ],
+        meta: { fields: ['Date', 'Description', 'Amount', 'Notes'] }
+      };
+    });
+
+    test('should convert to old YNAB format with separate Inflow/Outflow', () => {
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Outflow', 'Inflow'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Outflow': 'Amount',
+        'Inflow': 'Amount'
+      };
+      
+      const result = dataObject.converted_json(null, ynab_cols, lookup);
+      
+      expect(result).toHaveLength(3);
+      expect(result[0]).toEqual({
+        'Date': '2024-01-01',
+        'Payee': 'Purchase',
+        'Memo': 'Groceries',
+        'Outflow': '50.00',
+        'Inflow': ''
+      });
+      expect(result[1]).toEqual({
+        'Date': '2024-01-02',
+        'Payee': 'Salary',
+        'Memo': 'Monthly pay',
+        'Outflow': '',
+        'Inflow': '1000.00'
+      });
+    });
+
+    test('should convert to new YNAB format with combined Amount column', () => {
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Amount'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Amount': 'Amount'
+      };
+      
+      const result = dataObject.converted_json(null, ynab_cols, lookup);
+      
+      expect(result).toHaveLength(3);
+      expect(result[0]).toEqual({
+        'Date': '2024-01-01',
+        'Payee': 'Purchase',
+        'Memo': 'Groceries',
+        'Amount': '-50.00'
+      });
+      expect(result[1]).toEqual({
+        'Date': '2024-01-02',
+        'Payee': 'Salary',
+        'Memo': 'Monthly pay',
+        'Amount': '1000.00'
+      });
+    });
+
+    test('should handle inverted outflow logic', () => {
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Outflow', 'Inflow'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Outflow': 'Amount',
+        'Inflow': 'Amount'
+      };
+      
+      const result = dataObject.converted_json(null, ynab_cols, lookup, true);
+      
+      expect(result[0]).toEqual({
+        'Date': '2024-01-01',
+        'Payee': 'Purchase',
+        'Memo': 'Groceries',
+        'Outflow': '',
+        'Inflow': '50.00'
+      });
+      expect(result[1]).toEqual({
+        'Date': '2024-01-02',
+        'Payee': 'Salary',
+        'Memo': 'Monthly pay',
+        'Outflow': '1000.00',
+        'Inflow': ''
+      });
+    });
+
+    test('should respect limit parameter for preview', () => {
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Amount'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Amount': 'Amount'
+      };
+      
+      const result = dataObject.converted_json(2, ynab_cols, lookup);
+      
+      expect(result).toHaveLength(2);
+      expect(result[0].Payee).toBe('Purchase');
+      expect(result[1].Payee).toBe('Salary');
+    });
+
+    test('should handle missing fields gracefully', () => {
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Category'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Category': 'NonExistentField'
+      };
+      
+      const result = dataObject.converted_json(1, ynab_cols, lookup);
+      
+      expect(result[0]).toEqual({
+        'Date': '2024-01-01',
+        'Payee': 'Purchase',
+        'Memo': 'Groceries'
+        // Category is undefined, so not included
+      });
+    });
+
+    test('should handle separate Outflow/Inflow columns correctly', () => {
+      dataObject.base_json = {
+        data: [
+          { 'Date': '2024-01-01', 'Payee': 'Store', 'Out': '50.00', 'In': '' },
+          { 'Date': '2024-01-02', 'Payee': 'Work', 'Out': '', 'In': '1000.00' }
+        ],
+        meta: { fields: ['Date', 'Payee', 'Out', 'In'] }
+      };
+      
+      const ynab_cols = ['Date', 'Payee', 'Outflow', 'Inflow'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Payee',
+        'Outflow': 'Out',
+        'Inflow': 'In'
+      };
+      
+      const result = dataObject.converted_json(null, ynab_cols, lookup);
+      
+      expect(result[0]).toEqual({
+        'Date': '2024-01-01',
+        'Payee': 'Store',
+        'Outflow': '50.00'
+        // Inflow is empty string, so not included in result
+      });
+      expect(result[1]).toEqual({
+        'Date': '2024-01-02',
+        'Payee': 'Work',
+        'Inflow': '1000.00'
+        // Outflow is empty string, so not included in result
+      });
+    });
+
+    test('should return null if base_json is null', () => {
+      dataObject.base_json = null;
+      
+      const result = dataObject.converted_json(null, [], {});
+      
+      expect(result).toBeNull();
+    });
+  });
 });
