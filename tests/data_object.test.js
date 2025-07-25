@@ -531,6 +531,8 @@ describe('DataObject', () => {
       });
 
       test('should handle Excel parsing errors', () => {
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+        
         global.XLSX.read.mockImplementation(() => {
           throw new Error('Invalid Excel file');
         });
@@ -538,9 +540,14 @@ describe('DataObject', () => {
         expect(() => {
           dataObject.parseExcel('invalid_data', 'test.xlsx', 'UTF-8');
         }).toThrow('Failed to parse Excel file: Invalid Excel file');
+        
+        expect(consoleSpy).toHaveBeenCalledWith('Error parsing Excel file:', expect.any(Error));
+        consoleSpy.mockRestore();
       });
 
       test('should handle empty workbook', () => {
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+        
         const mockWorkbook = {
           SheetNames: [],
           Sheets: {}
@@ -551,9 +558,14 @@ describe('DataObject', () => {
         expect(() => {
           dataObject.parseExcel('binary_data', 'test.xlsx', 'UTF-8');
         }).toThrow('Failed to parse Excel file: No worksheets found in Excel file');
+        
+        expect(consoleSpy).toHaveBeenCalledWith('Error parsing Excel file:', expect.any(Error));
+        consoleSpy.mockRestore();
       });
 
       test('should handle missing worksheet', () => {
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+        
         const mockWorkbook = {
           SheetNames: ['Sheet1'],
           Sheets: {
@@ -566,6 +578,9 @@ describe('DataObject', () => {
         expect(() => {
           dataObject.parseExcel('binary_data', 'test.xlsx', 'UTF-8', 1, false, null, 5); // invalid index
         }).toThrow('Failed to parse Excel file: Worksheet index 5 is out of range. Available sheets: 1');
+        
+        expect(consoleSpy).toHaveBeenCalledWith('Error parsing Excel file:', expect.any(Error));
+        consoleSpy.mockRestore();
       });
 
       test('should pass through all parseCsv parameters', () => {
