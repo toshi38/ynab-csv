@@ -44,26 +44,103 @@ Date.prototype.yyyymmdd = function () {
 };
 
 angular.element(document).ready(function () {
+  console.log('[app] Angular app starting to load...');
   angular.module("app", []);
+  console.log('[app] Angular module created');
   angular.module("app").directive("fileread", [
     function () {
       return {
         scope: {
-          fileread: "="
+          fileread: "=",
+          filename: "="
         },
         link: function (scope, element, attributes) {
-          return element.bind("change", function (changeEvent) {
+          try {
+            console.log('[fileread] Directive link function called');
+            console.log('[fileread] Element:', element, 'Type:', element[0] ? element[0].type : 'unknown');
+            console.log('[fileread] Attributes:', attributes);
+            
+            // Add multiple event listeners for debugging
+            element.bind("click", function() {
+              console.log('[fileread] File input clicked - file picker should open');
+            });
+            
+            element.bind("focus", function() {
+              console.log('[fileread] File input focused');
+            });
+            
+            element.bind("blur", function() {
+              console.log('[fileread] File input blurred - file picker closed');
+            });
+            
+            element.bind("input", function(event) {
+              console.log('[fileread] Input event fired:', event);
+            });
+            
+            console.log('[fileread] All event listeners bound, now binding change event');
+            return element.bind("change", function (changeEvent) {
+            console.log('[fileread] Change event fired!', changeEvent);
             var reader;
             var file = changeEvent.target.files[0];
-            if (!file) return;
+            console.log('[fileread] Selected file:', file);
+            if (!file) {
+              console.log('[fileread] No file selected, returning');
+              return;
+            }
             
             reader = new FileReader();
             reader.onload = function (loadEvent) {
               return scope.$apply(function () {
-                // Store both file content and filename for Excel detection
-                scope.fileread = loadEvent.target.result;
+                // Create a data object with both content and filename
+                var dataWithFilename = loadEvent.target.result;
+                
+                // Attach filename as a property to the data (works for both ArrayBuffer and string)
+                if (dataWithFilename instanceof ArrayBuffer) {
+                  // For ArrayBuffer, create a wrapper object
+                  dataWithFilename = {
+                    data: loadEvent.target.result,
+                    filename: file.name,
+                    isArrayBuffer: true
+                  };
+                } else {
+                  // For string data, add filename property
+                  Object.defineProperty(dataWithFilename, '_filename', {
+                    value: file.name,
+                    writable: false,
+                    enumerable: false
+                  });
+                }
+                
+                // Set both filename and data
                 scope.filename = file.name;
+                scope.fileread = dataWithFilename;
+                
+                console.log('[fileread] Set data with embedded filename:', file.name);
+                console.log('[fileread] Data type:', dataWithFilename instanceof ArrayBuffer ? 'ArrayBuffer' : typeof dataWithFilename);
+                console.log('[fileread] File loaded:', file.name, 'Extension:', extension, 'isExcel:', isExcel);
+                
+                // Debug: Check what's actually in the scope after setting
+                setTimeout(function() {
+                  console.log('[fileread-debug] After setting - directive scope.filename:', scope.filename);
+                  console.log('[fileread-debug] After setting - directive scope.fileread exists:', !!scope.fileread);
+                }, 0);
+                console.log('[fileread] Setting scope.fileread to data with length:', loadEvent.target.result ? loadEvent.target.result.length || loadEvent.target.result.byteLength || 'unknown' : 'null');
+                console.log('[fileread] Parent scope data.source before:', scope.$parent.data ? scope.$parent.data.source : 'undefined');
+                
+                // Force a timeout to check if binding worked
+                setTimeout(function() {
+                  scope.$apply(function() {
+                    console.log('[fileread] After timeout - Parent scope data.source:', scope.$parent.data ? scope.$parent.data.source : 'undefined');
+                    console.log('[fileread] Directive scope.fileread:', scope.fileread ? 'has data' : 'no data');
+                  });
+                }, 100);
               });
+            };
+            reader.onerror = function (error) {
+              console.error('[fileread] FileReader error:', error);
+            };
+            reader.onabort = function () {
+              console.log('[fileread] FileReader aborted');
             };
             
             // Check if it's an Excel file - use appropriate reading method based on format
@@ -79,19 +156,27 @@ angular.element(document).ready(function () {
               isExcel = ['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension);
             }
             
+            console.log('[fileread] File details - Name:', file.name, 'Size:', file.size, 'Type:', file.type, 'Extension:', extension, 'isExcel:', isExcel);
+            
             if (isExcel) {
               // Use different reading methods for different Excel formats
               if (['xls', 'xlsb'].includes(extension)) {
+                console.log('[fileread] Reading as ArrayBuffer for XLS/XLSB');
                 // XLS and XLSB files use OLE2 format, read as ArrayBuffer
                 reader.readAsArrayBuffer(file);
               } else {
+                console.log('[fileread] Reading as BinaryString for XLSX/XLSM');
                 // XLSX and XLSM files are ZIP-based, read as binary string
                 reader.readAsBinaryString(file);
               }
             } else {
+              console.log('[fileread] Reading as Text for CSV');
               reader.readAsText(file, attributes.encoding);
             }
           });
+          } catch (error) {
+            console.error('[fileread] Error in directive link function:', error);
+          }
         }
       };
     }
@@ -103,7 +188,8 @@ angular.element(document).ready(function () {
         replace: true,
         template: '<div class="dropzone"><div ng-transclude></div></div>',
         scope: {
-          dropzone: "="
+          dropzone: "=",
+          filename: "="
         },
         link: function (scope, element, attributes) {
           element.bind("dragenter", function (event) {
@@ -137,9 +223,12 @@ angular.element(document).ready(function () {
             reader = new FileReader();
             reader.onload = function (loadEvent) {
               scope.$apply(function () {
-                // Store both file content and filename for Excel detection
-                scope.dropzone = loadEvent.target.result;
+                // Set both filename and data through proper two-way binding
                 scope.filename = file.name;
+                scope.dropzone = loadEvent.target.result;
+                console.log('[dropzone] Set filename via binding:', file.name);
+                console.log('[dropzone] Set data via binding, length:', loadEvent.target.result ? loadEvent.target.result.length || loadEvent.target.result.byteLength || 'unknown' : 'null');
+                console.log('[dropzone] File dropped:', file.name, 'Extension:', extension, 'isExcel:', isExcel);
               });
             };
             
@@ -259,15 +348,57 @@ angular.element(document).ready(function () {
       $scope.profile.columnFormat = $scope.ynab_cols
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     };
+    console.log('[controller] Setting up data.source watcher');
+    
+    // Add a separate watcher for filename to debug binding
+    $scope.$watch("filename", function (newValue, oldValue) {
+      console.log('[filename-watcher] Filename changed from', oldValue, 'to', newValue);
+    });
+    
     $scope.$watch("data.source", function (newValue, oldValue) {
-      if (newValue && newValue.length > 0) {
+      var newValueDesc = 'null/undefined';
+      var filename = $scope.filename;
+      var actualData = newValue;
+      
+      if (newValue) {
+        // Check if data has embedded filename
+        if (newValue.isArrayBuffer && newValue.filename) {
+          // Excel data with embedded filename
+          filename = newValue.filename;
+          actualData = newValue.data;
+          newValueDesc = 'ArrayBuffer with filename (' + actualData.byteLength + ')';
+        } else if (newValue instanceof ArrayBuffer) {
+          newValueDesc = 'ArrayBuffer(' + newValue.byteLength + ')';
+        } else if (typeof newValue === 'string') {
+          // Check for embedded filename in string
+          if (newValue._filename) {
+            filename = newValue._filename;
+          }
+          newValueDesc = newValue.length + ' chars';
+        } else if (typeof newValue === 'object' && newValue.data) {
+          // Fallback for wrapper objects
+          filename = newValue.filename || filename;
+          actualData = newValue.data;
+          newValueDesc = 'Object wrapper';
+        } else {
+          newValueDesc = 'unknown type: ' + typeof newValue;
+        }
+      }
+      
+      console.log('[watcher] Called with newValue:', newValueDesc, 'filename from data:', filename, 'scope filename:', $scope.filename);
+      
+      // Handle both string (CSV) and ArrayBuffer (Excel) data
+      if (actualData && ((typeof actualData === 'string' && actualData.length > 0) || (actualData instanceof ArrayBuffer && actualData.byteLength > 0))) {
+        var dataLength = actualData instanceof ArrayBuffer ? actualData.byteLength : actualData.length;
+        console.log('[watcher] data.source changed, filename:', filename, 'data length:', dataLength);
         try {
-          // Check if this is an Excel file
-          if ($scope.filename && $scope.data_object.isExcelFile($scope.filename)) {
-            // Parse as Excel file
+          // Check if this is an Excel file using the extracted filename
+          if (filename && $scope.data_object.isExcelFile(filename)) {
+            console.log('[watcher] Detected Excel file:', filename);
+            // Parse as Excel file using the actual data
             $scope.data_object.parseExcel(
-              newValue, 
-              $scope.filename, 
+              actualData, 
+              filename, 
               $scope.file.chosenEncoding, 
               $scope.file.startAtRow, 
               $scope.profile.extraRow, 
@@ -275,11 +406,12 @@ angular.element(document).ready(function () {
               0 // default to first worksheet
             );
           } else {
-            // Parse as CSV file (existing logic)
+            console.log('[watcher] Parsing as CSV file, filename:', filename);
+            // Parse as CSV file (existing logic) using actualData
             if ($scope.file.chosenDelimiter == "auto") {
-              $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow);
+              $scope.data_object.parseCsv(actualData, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow);
             } else {
-              $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow, $scope.file.chosenDelimiter);
+              $scope.data_object.parseCsv(actualData, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow, $scope.file.chosenDelimiter);
             }
           }
           

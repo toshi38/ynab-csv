@@ -67,7 +67,7 @@
       </div>
     </div>
 
-    <div dropzone="data.source" encoding="{{file.chosenEncoding}}" delimiter="{{file.chosenDelimiter}}">
+    <div dropzone="data.source" filename="filename" encoding="{{file.chosenEncoding}}" delimiter="{{file.chosenDelimiter}}">
       <div class="container mx-auto show_on_load" style="width: 600px;">
         <br />
         <div id="upload_wrapper" ng-if="!data_object.base_json">
@@ -80,6 +80,7 @@
                 type="file"
                 accept=".csv,.xlsx,.xls,.xlsm,.xlsb"
                 fileread="data.source"
+                filename="filename"
                 encoding="{{file.chosenEncoding}}"
                 delimiter="{{file.chosenDelimiter}}"
               />
