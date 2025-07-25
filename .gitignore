@@ -1,3 +1,9 @@
 node_modules
 *.log
 .vscode
+
+# Excel files (to prevent accidental commits of sensitive data)
+*.xls
+*.xlsx
+*.xlsm
+*.xlsb
