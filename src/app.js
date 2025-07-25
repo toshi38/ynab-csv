@@ -204,6 +204,7 @@ angular.element(document).ready(function () {
         extraRow: $scope.profile.extraRow || false
       };
       $scope.data_object = new DataObject();
+      $scope.filename = null;
     }
 
     $scope.setInitialScopeState();
@@ -265,6 +266,12 @@ angular.element(document).ready(function () {
               $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow, $scope.file.chosenDelimiter);
             }
           }
+          
+          // Initialize worksheet selection for Excel files
+          if ($scope.filename && $scope.isExcelFile($scope.filename) && $scope.data_object.worksheetNames) {
+            $scope.file.selectedWorksheet = 0; // Default to first worksheet
+          }
+          
           $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
         } catch (error) {
           console.error('Error parsing file:', error);
@@ -295,6 +302,44 @@ angular.element(document).ready(function () {
     $scope.invert_flows = function () {
       $scope.inverted_outflow = !$scope.inverted_outflow;
     }
+    
+    // Helper methods for file type detection and display
+    $scope.isExcelFile = function(filename) {
+      if (!filename) return false;
+      var extension = filename.toLowerCase().split('.').pop();
+      return ['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension);
+    };
+    
+    $scope.getFileType = function(filename) {
+      if (!filename) return '';
+      var extension = filename.toLowerCase().split('.').pop();
+      if (['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension)) {
+        return extension.toUpperCase();
+      }
+      return 'CSV';
+    };
+    
+    // Handle worksheet selection for Excel files
+    $scope.worksheetChosen = function(worksheetIndex) {
+      if ($scope.filename && $scope.data.source && $scope.isExcelFile($scope.filename)) {
+        try {
+          // Re-parse the Excel file with the selected worksheet
+          $scope.data_object.parseExcel(
+            $scope.data.source, 
+            $scope.filename, 
+            $scope.file.chosenEncoding, 
+            $scope.file.startAtRow, 
+            $scope.profile.extraRow, 
+            $scope.file.chosenDelimiter == "auto" ? null : $scope.file.chosenDelimiter,
+            worksheetIndex
+          );
+          $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
+        } catch (error) {
+          console.error('Error switching worksheet:', error);
+          alert('Error switching worksheet: ' + error.message);
+        }
+      }
+    };
     $scope.downloadFile = function () {
       var a;
       var date = new Date();
