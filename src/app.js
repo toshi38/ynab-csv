@@ -54,13 +54,35 @@ angular.element(document).ready(function () {
         link: function (scope, element, attributes) {
           return element.bind("change", function (changeEvent) {
             var reader;
+            var file = changeEvent.target.files[0];
+            if (!file) return;
+            
             reader = new FileReader();
             reader.onload = function (loadEvent) {
               return scope.$apply(function () {
+                // Store both file content and filename for Excel detection
                 scope.fileread = loadEvent.target.result;
+                scope.filename = file.name;
               });
             };
-            reader.readAsText(changeEvent.target.files[0], attributes.encoding);
+            
+            // Check if it's an Excel file - if so, read as binary
+            // Fallback for test environment where DataObject might not be available
+            var isExcel = false;
+            if (window.DataObject) {
+              var dataObject = new window.DataObject();
+              isExcel = dataObject.isExcelFile(file.name);
+            } else {
+              // Simple fallback for testing
+              var extension = file.name.toLowerCase().split('.').pop();
+              isExcel = ['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension);
+            }
+            
+            if (isExcel) {
+              reader.readAsBinaryString(file);
+            } else {
+              reader.readAsText(file, attributes.encoding);
+            }
           });
         }
       };
@@ -100,14 +122,36 @@ angular.element(document).ready(function () {
             element.removeClass("dragging");
             event.preventDefault();
             event.stopPropagation();
+            
+            var file = (event.dataTransfer || event.originalEvent.dataTransfer).files[0];
+            if (!file) return;
+            
             reader = new FileReader();
             reader.onload = function (loadEvent) {
               scope.$apply(function () {
+                // Store both file content and filename for Excel detection
                 scope.dropzone = loadEvent.target.result;
+                scope.filename = file.name;
               });
             };
-            file = (event.dataTransfer || event.originalEvent.dataTransfer).files[0];
-            reader.readAsText(file, attributes.encoding);
+            
+            // Check if it's an Excel file - if so, read as binary
+            // Fallback for test environment where DataObject might not be available
+            var isExcel = false;
+            if (window.DataObject) {
+              var dataObject = new window.DataObject();
+              isExcel = dataObject.isExcelFile(file.name);
+            } else {
+              // Simple fallback for testing
+              var extension = file.name.toLowerCase().split('.').pop();
+              isExcel = ['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension);
+            }
+            
+            if (isExcel) {
+              reader.readAsBinaryString(file);
+            } else {
+              reader.readAsText(file, attributes.encoding);
+            }
           });
           element.bind("paste", function (event) {
             var items = (event.clipboardData || event.originalEvent.clipboardData).items;
@@ -200,12 +244,32 @@ angular.element(document).ready(function () {
     };
     $scope.$watch("data.source", function (newValue, oldValue) {
       if (newValue && newValue.length > 0) {
-        if ($scope.file.chosenDelimiter == "auto") {
-          $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow);
-        } else {
-          $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow, $scope.file.chosenDelimiter);
+        try {
+          // Check if this is an Excel file
+          if ($scope.filename && $scope.data_object.isExcelFile($scope.filename)) {
+            // Parse as Excel file
+            $scope.data_object.parseExcel(
+              newValue, 
+              $scope.filename, 
+              $scope.file.chosenEncoding, 
+              $scope.file.startAtRow, 
+              $scope.profile.extraRow, 
+              $scope.file.chosenDelimiter == "auto" ? null : $scope.file.chosenDelimiter,
+              0 // default to first worksheet
+            );
+          } else {
+            // Parse as CSV file (existing logic)
+            if ($scope.file.chosenDelimiter == "auto") {
+              $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow);
+            } else {
+              $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow, $scope.file.chosenDelimiter);
+            }
+          }
+          $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
+        } catch (error) {
+          console.error('Error parsing file:', error);
+          alert('Error parsing file: ' + error.message);
         }
-        $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
       }
     });
     $scope.$watch("inverted_outflow", function (newValue, oldValue) {
