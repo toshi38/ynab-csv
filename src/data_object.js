@@ -5,6 +5,50 @@ window.DataObject = class DataObject {
     this.base_json = null;
   }
 
+  // Detect if the file content is Excel format based on file extension or content
+  isExcelFile(filename) {
+    if (!filename) return false;
+    const extension = filename.toLowerCase().split('.').pop();
+    return ['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension);
+  }
+
+  // Parse Excel file and convert to CSV format that existing parseCsv can handle
+  parseExcel(fileContent, filename, encoding, startAtRow=1, extraRow=false, delimiter=null, worksheetIndex=0) {
+    try {
+      // Read the Excel file using SheetJS
+      const workbook = XLSX.read(fileContent, { type: 'binary' });
+      
+      // Get worksheet names for potential multi-sheet support
+      const worksheetNames = workbook.SheetNames;
+      
+      if (worksheetNames.length === 0) {
+        throw new Error('No worksheets found in Excel file');
+      }
+      
+      // Use specified worksheet index or default to first sheet
+      const worksheetName = worksheetNames[worksheetIndex] || worksheetNames[0];
+      const worksheet = workbook.Sheets[worksheetName];
+      
+      if (!worksheet) {
+        throw new Error(`Worksheet not found: ${worksheetName}`);
+      }
+      
+      // Convert worksheet to CSV format
+      const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+      
+      // Store worksheet info for potential UI use
+      this.worksheetNames = worksheetNames;
+      this.currentWorksheet = worksheetName;
+      
+      // Now parse the CSV content using existing parseCsv method
+      return this.parseCsv(csvContent, encoding, startAtRow, extraRow, delimiter);
+      
+    } catch (error) {
+      console.error('Error parsing Excel file:', error);
+      throw new Error(`Failed to parse Excel file: ${error.message}`);
+    }
+  }
+
   // Parse base csv file as JSON. This will be easier to work with.
   // It uses http://papaparse.com/ for handling parsing
   parseCsv(csv, encoding, startAtRow=1, extraRow=false, delimiter=null) {
