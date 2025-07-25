@@ -26,7 +26,15 @@ window.DataObject = class DataObject {
       }
       
       // Use specified worksheet index or default to first sheet
-      const worksheetName = worksheetNames[worksheetIndex] || worksheetNames[0];
+      let worksheetName;
+      if (worksheetIndex >= 0 && worksheetIndex < worksheetNames.length) {
+        worksheetName = worksheetNames[worksheetIndex];
+      } else if (worksheetIndex === 0 || worksheetIndex === undefined) {
+        worksheetName = worksheetNames[0];
+      } else {
+        throw new Error(`Worksheet index ${worksheetIndex} is out of range. Available sheets: ${worksheetNames.length}`);
+      }
+      
       const worksheet = workbook.Sheets[worksheetName];
       
       if (!worksheet) {

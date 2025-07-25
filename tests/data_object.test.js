@@ -442,4 +442,149 @@ describe('DataObject', () => {
       expect(lines[2]).toContain('Purchase 2');
     });
   });
+
+  describe('Excel File Support', () => {
+    beforeEach(() => {
+      // Mock XLSX for Excel tests
+      global.XLSX = {
+        read: jest.fn(),
+        utils: {
+          sheet_to_csv: jest.fn()
+        }
+      };
+    });
+
+    afterEach(() => {
+      delete global.XLSX;
+    });
+
+    describe('isExcelFile()', () => {
+      test('should detect Excel files by extension', () => {
+        expect(dataObject.isExcelFile('test.xlsx')).toBe(true);
+        expect(dataObject.isExcelFile('test.xls')).toBe(true);
+        expect(dataObject.isExcelFile('test.xlsm')).toBe(true);
+        expect(dataObject.isExcelFile('test.xlsb')).toBe(true);
+        expect(dataObject.isExcelFile('TEST.XLSX')).toBe(true); // case insensitive
+      });
+
+      test('should not detect non-Excel files', () => {
+        expect(dataObject.isExcelFile('test.csv')).toBe(false);
+        expect(dataObject.isExcelFile('test.txt')).toBe(false);
+        expect(dataObject.isExcelFile('test.pdf')).toBe(false);
+        expect(dataObject.isExcelFile('')).toBe(false);
+        expect(dataObject.isExcelFile(null)).toBe(false);
+        expect(dataObject.isExcelFile(undefined)).toBe(false);
+      });
+    });
+
+    describe('parseExcel()', () => {
+      test('should parse Excel file with single worksheet', () => {
+        const mockWorkbook = {
+          SheetNames: ['Sheet1'],
+          Sheets: {
+            'Sheet1': { /* worksheet data */ }
+          }
+        };
+        const mockCsvContent = 'Date,Description,Amount\n2024-01-01,Purchase,-50.00';
+        
+        global.XLSX.read.mockReturnValue(mockWorkbook);
+        global.XLSX.utils.sheet_to_csv.mockReturnValue(mockCsvContent);
+        
+        // Mock parseCsv to return expected data
+        const mockParsedData = {
+          data: [{ Date: '2024-01-01', Description: 'Purchase', Amount: '-50.00' }],
+          meta: { fields: ['Date', 'Description', 'Amount'] }
+        };
+        dataObject.parseCsv = jest.fn().mockReturnValue(mockParsedData);
+        
+        const result = dataObject.parseExcel('binary_data', 'test.xlsx', 'UTF-8');
+        
+        expect(global.XLSX.read).toHaveBeenCalledWith('binary_data', { type: 'binary' });
+        expect(global.XLSX.utils.sheet_to_csv).toHaveBeenCalledWith(mockWorkbook.Sheets['Sheet1']);
+        expect(dataObject.parseCsv).toHaveBeenCalledWith(mockCsvContent, 'UTF-8', 1, false, null);
+        expect(result).toEqual(mockParsedData);
+        expect(dataObject.worksheetNames).toEqual(['Sheet1']);
+        expect(dataObject.currentWorksheet).toBe('Sheet1');
+      });
+
+      test('should parse Excel file with multiple worksheets', () => {
+        const mockWorkbook = {
+          SheetNames: ['Sheet1', 'Sheet2', 'Data'],
+          Sheets: {
+            'Sheet1': { /* worksheet 1 data */ },
+            'Sheet2': { /* worksheet 2 data */ },
+            'Data': { /* data worksheet */ }
+          }
+        };
+        const mockCsvContent = 'Name,Value\nTest,123';
+        
+        global.XLSX.read.mockReturnValue(mockWorkbook);
+        global.XLSX.utils.sheet_to_csv.mockReturnValue(mockCsvContent);
+        dataObject.parseCsv = jest.fn().mockReturnValue({ data: [], meta: { fields: [] } });
+        
+        // Test selecting a specific worksheet (index 2 = 'Data')
+        dataObject.parseExcel('binary_data', 'test.xlsx', 'UTF-8', 1, false, null, 2);
+        
+        expect(global.XLSX.utils.sheet_to_csv).toHaveBeenCalledWith(mockWorkbook.Sheets['Data']);
+        expect(dataObject.worksheetNames).toEqual(['Sheet1', 'Sheet2', 'Data']);
+        expect(dataObject.currentWorksheet).toBe('Data');
+      });
+
+      test('should handle Excel parsing errors', () => {
+        global.XLSX.read.mockImplementation(() => {
+          throw new Error('Invalid Excel file');
+        });
+        
+        expect(() => {
+          dataObject.parseExcel('invalid_data', 'test.xlsx', 'UTF-8');
+        }).toThrow('Failed to parse Excel file: Invalid Excel file');
+      });
+
+      test('should handle empty workbook', () => {
+        const mockWorkbook = {
+          SheetNames: [],
+          Sheets: {}
+        };
+        
+        global.XLSX.read.mockReturnValue(mockWorkbook);
+        
+        expect(() => {
+          dataObject.parseExcel('binary_data', 'test.xlsx', 'UTF-8');
+        }).toThrow('Failed to parse Excel file: No worksheets found in Excel file');
+      });
+
+      test('should handle missing worksheet', () => {
+        const mockWorkbook = {
+          SheetNames: ['Sheet1'],
+          Sheets: {
+            'Sheet1': { /* worksheet data */ }
+          }
+        };
+        
+        global.XLSX.read.mockReturnValue(mockWorkbook);
+        
+        expect(() => {
+          dataObject.parseExcel('binary_data', 'test.xlsx', 'UTF-8', 1, false, null, 5); // invalid index
+        }).toThrow('Failed to parse Excel file: Worksheet index 5 is out of range. Available sheets: 1');
+      });
+
+      test('should pass through all parseCsv parameters', () => {
+        const mockWorkbook = {
+          SheetNames: ['Sheet1'],
+          Sheets: {
+            'Sheet1': { /* worksheet data */ }
+          }
+        };
+        const mockCsvContent = 'Date,Amount\n2024-01-01,-50.00';
+        
+        global.XLSX.read.mockReturnValue(mockWorkbook);
+        global.XLSX.utils.sheet_to_csv.mockReturnValue(mockCsvContent);
+        dataObject.parseCsv = jest.fn().mockReturnValue({ data: [], meta: { fields: [] } });
+        
+        dataObject.parseExcel('binary_data', 'test.xlsx', 'ISO-8859-1', 3, true, ',', 0);
+        
+        expect(dataObject.parseCsv).toHaveBeenCalledWith(mockCsvContent, 'ISO-8859-1', 3, true, ',');
+      });
+    });
+  });
 });
