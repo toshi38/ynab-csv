@@ -150,4 +150,193 @@ describe('ParseController', () => {
       expect($scope.setInitialScopeState).toHaveBeenCalled();
     });
   });
+
+  describe('File Processing', () => {
+    beforeEach(() => {
+      // Set up data object mock methods
+      $scope.data_object.parseCsv = jest.fn();
+      $scope.data_object.converted_json = jest.fn(() => [
+        { Date: '2024-01-01', Payee: 'Store', Amount: '-50.00' }
+      ]);
+      $scope.data_object.converted_csv = jest.fn(() => 'Date,Payee,Amount\n2024-01-01,Store,-50.00');
+    });
+
+    test('should process file data when data.source changes', () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+      
+      // Simulate file data change with auto delimiter
+      $scope.file.chosenDelimiter = 'auto';
+      $scope.file.startAtRow = 1;
+      $scope.profile.extraRow = false;
+      const csvData = 'Date,Payee,Amount\n2024-01-01,Store,-50.00';
+      
+      watchCallbacks['data.source'](csvData, null);
+      
+      expect($scope.data_object.parseCsv).toHaveBeenCalledWith(
+        csvData,
+        $scope.file.chosenEncoding,
+        $scope.file.startAtRow,
+        $scope.profile.extraRow
+      );
+      expect($scope.data_object.converted_json).toHaveBeenCalledWith(
+        10,
+        $scope.ynab_cols,
+        $scope.ynab_map,
+        $scope.inverted_outflow
+      );
+    });
+
+    test('should process file data with custom delimiter', () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+      
+      // Simulate file data change with custom delimiter
+      $scope.file.chosenDelimiter = ';';
+      $scope.file.startAtRow = 2;
+      $scope.profile.extraRow = true;
+      const csvData = 'Date;Payee;Amount\n2024-01-01;Store;-50.00';
+      
+      watchCallbacks['data.source'](csvData, null);
+      
+      expect($scope.data_object.parseCsv).toHaveBeenCalledWith(
+        csvData,
+        $scope.file.chosenEncoding,
+        $scope.file.startAtRow,
+        $scope.profile.extraRow,
+        ';'
+      );
+    });
+
+    test('should update preview when inverted_outflow changes', () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+      
+      // Set initial inverted_outflow to false
+      $scope.inverted_outflow = false;
+      
+      // Simulate inverted outflow change - the watch callback should update preview
+      $scope.inverted_outflow = true;
+      watchCallbacks['inverted_outflow'](true, false);
+      
+      expect($scope.data_object.converted_json).toHaveBeenCalledWith(
+        10,
+        $scope.ynab_cols,
+        $scope.ynab_map,
+        $scope.inverted_outflow
+      );
+    });
+
+    test('should update preview when column mapping changes', () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback, deep) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+      
+      // Simulate column mapping change
+      const newMapping = { Date: 'Transaction Date', Payee: 'Merchant' };
+      watchCallbacks['ynab_map'](newMapping, {});
+      
+      expect($scope.profile.chosenColumns).toEqual(newMapping);
+      expect($scope.data_object.converted_json).toHaveBeenCalledWith(
+        10,
+        $scope.ynab_cols,
+        newMapping,
+        $scope.inverted_outflow
+      );
+    });
+
+    test('should generate CSV string for download', () => {
+      $scope.data_object.converted_csv.mockReturnValue('Date,Payee,Amount\n2024-01-01,Store,-50.00');
+      
+      const result = $scope.csvString();
+      
+      expect($scope.data_object.converted_csv).toHaveBeenCalledWith(
+        null,
+        $scope.ynab_cols,
+        $scope.ynab_map,
+        $scope.inverted_outflow
+      );
+      expect(result).toBe('Date,Payee,Amount\n2024-01-01,Store,-50.00');
+    });
+
+    test('should create download file with proper filename', () => {
+      const mockAnchor = {
+        href: '',
+        target: '',
+        download: '',
+        click: jest.fn()
+      };
+      
+      // Mock global functions
+      global.btoa = jest.fn(() => 'base64data');
+      global.unescape = jest.fn((str) => str);
+      global.encodeURIComponent = jest.fn((str) => str);
+      
+      // Mock Date constructor to return a specific date
+      const mockDate = new Date('2024-01-01');
+      mockDate.yyyymmdd = jest.fn(() => '20240101');
+      jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
+      
+      // Mock document.createElement to return our mock anchor
+      global.document.createElement = jest.fn(() => mockAnchor);
+      global.document.body.appendChild = jest.fn();
+      
+      $scope.data_object.converted_csv.mockReturnValue('test,data\n1,2');
+      
+      $scope.downloadFile();
+      
+      expect(global.document.createElement).toHaveBeenCalledWith('a');
+      expect(mockAnchor.href).toBe('data:attachment/csv;base64,base64data');
+      expect(mockAnchor.target).toBe('_blank');
+      expect(mockAnchor.download).toBe('ynab_data_20240101.csv');
+      expect(global.document.body.appendChild).toHaveBeenCalledWith(mockAnchor);
+      expect(mockAnchor.click).toHaveBeenCalled();
+      
+      // Restore Date mock
+      global.Date.mockRestore();
+    });
+  });
 });
