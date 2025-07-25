@@ -66,20 +66,28 @@ angular.element(document).ready(function () {
               });
             };
             
-            // Check if it's an Excel file - if so, read as binary
+            // Check if it's an Excel file - use appropriate reading method based on format
             // Fallback for test environment where DataObject might not be available
             var isExcel = false;
+            var extension = file.name.toLowerCase().split('.').pop();
+            
             if (window.DataObject) {
               var dataObject = new window.DataObject();
               isExcel = dataObject.isExcelFile(file.name);
             } else {
               // Simple fallback for testing
-              var extension = file.name.toLowerCase().split('.').pop();
               isExcel = ['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension);
             }
             
             if (isExcel) {
-              reader.readAsBinaryString(file);
+              // Use different reading methods for different Excel formats
+              if (['xls', 'xlsb'].includes(extension)) {
+                // XLS and XLSB files use OLE2 format, read as ArrayBuffer
+                reader.readAsArrayBuffer(file);
+              } else {
+                // XLSX and XLSM files are ZIP-based, read as binary string
+                reader.readAsBinaryString(file);
+              }
             } else {
               reader.readAsText(file, attributes.encoding);
             }
@@ -135,20 +143,28 @@ angular.element(document).ready(function () {
               });
             };
             
-            // Check if it's an Excel file - if so, read as binary
+            // Check if it's an Excel file - use appropriate reading method based on format
             // Fallback for test environment where DataObject might not be available
             var isExcel = false;
+            var extension = file.name.toLowerCase().split('.').pop();
+            
             if (window.DataObject) {
               var dataObject = new window.DataObject();
               isExcel = dataObject.isExcelFile(file.name);
             } else {
               // Simple fallback for testing
-              var extension = file.name.toLowerCase().split('.').pop();
               isExcel = ['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension);
             }
             
             if (isExcel) {
-              reader.readAsBinaryString(file);
+              // Use different reading methods for different Excel formats
+              if (['xls', 'xlsb'].includes(extension)) {
+                // XLS and XLSB files use OLE2 format, read as ArrayBuffer
+                reader.readAsArrayBuffer(file);
+              } else {
+                // XLSX and XLSM files are ZIP-based, read as binary string
+                reader.readAsBinaryString(file);
+              }
             } else {
               reader.readAsText(file, attributes.encoding);
             }

@@ -15,13 +15,34 @@ window.DataObject = class DataObject {
   // Parse Excel file and convert to CSV format that existing parseCsv can handle
   parseExcel(fileContent, filename, encoding, startAtRow=1, extraRow=false, delimiter=null, worksheetIndex=0) {
     try {
-      // Read the Excel file using SheetJS
-      const workbook = XLSX.read(fileContent, { type: 'binary' });
+      // Determine the appropriate data type for SheetJS based on file format
+      let dataType = 'binary';
+      const extension = filename.toLowerCase().split('.').pop();
+      
+      if (['xls', 'xlsb'].includes(extension)) {
+        // XLS and XLSB files use OLE2 format and should be read as array buffer
+        dataType = 'array';
+        // Convert ArrayBuffer to Uint8Array if needed
+        if (fileContent instanceof ArrayBuffer) {
+          fileContent = new Uint8Array(fileContent);
+        }
+      } else {
+        // XLSX and XLSM files are ZIP-based and can be read as binary string
+        dataType = 'binary';
+      }
+      
+      // Read the Excel file using SheetJS with appropriate data type
+      const workbook = XLSX.read(fileContent, { type: dataType });
+      
+      // Validate that we have a proper workbook
+      if (!workbook || typeof workbook !== 'object') {
+        throw new Error('Invalid Excel file: Unable to parse workbook structure');
+      }
       
       // Get worksheet names for potential multi-sheet support
       const worksheetNames = workbook.SheetNames;
       
-      if (worksheetNames.length === 0) {
+      if (!worksheetNames || worksheetNames.length === 0) {
         throw new Error('No worksheets found in Excel file');
       }
       
@@ -44,6 +65,16 @@ window.DataObject = class DataObject {
       // Convert worksheet to CSV format
       const csvContent = XLSX.utils.sheet_to_csv(worksheet);
       
+      // Validate that we got meaningful CSV content
+      if (!csvContent || csvContent.trim().length === 0) {
+        throw new Error('No data found in selected worksheet');
+      }
+      
+      // Additional validation: check if content looks like binary garbage
+      if (this._containsBinaryGarbage(csvContent)) {
+        throw new Error('Excel file appears to be corrupted or in an unsupported format');
+      }
+      
       // Store worksheet info for potential UI use
       this.worksheetNames = worksheetNames;
       this.currentWorksheet = worksheetName;
@@ -55,6 +86,16 @@ window.DataObject = class DataObject {
       console.error('Error parsing Excel file:', error);
       throw new Error(`Failed to parse Excel file: ${error.message}`);
     }
+  }
+
+  // Helper method to detect if CSV content contains binary garbage
+  _containsBinaryGarbage(csvContent) {
+    // Check for excessive non-printable characters
+    const nonPrintableCount = (csvContent.match(/[\x00-\x08\x0E-\x1F\x7F-\xFF]/g) || []).length;
+    const totalLength = csvContent.length;
+    
+    // If more than 30% of content is non-printable, it's likely binary garbage
+    return totalLength > 0 && (nonPrintableCount / totalLength) > 0.3;
   }
 
   // Parse base csv file as JSON. This will be easier to work with.
