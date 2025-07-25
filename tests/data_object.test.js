@@ -301,4 +301,145 @@ describe('DataObject', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('CSV Export - converted_csv()', () => {
+    beforeEach(() => {
+      dataObject.base_json = {
+        data: [
+          { 'Date': '2024-01-01', 'Description': 'Purchase', 'Amount': '-50.00', 'Notes': 'Groceries' },
+          { 'Date': '2024-01-02', 'Description': 'Salary', 'Amount': '1000.00', 'Notes': 'Monthly pay' }
+        ],
+        meta: { fields: ['Date', 'Description', 'Amount', 'Notes'] }
+      };
+    });
+
+    test('should export to CSV format with old YNAB columns', () => {
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Outflow', 'Inflow'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Outflow': 'Amount',
+        'Inflow': 'Amount'
+      };
+      
+      const result = dataObject.converted_csv(null, ynab_cols, lookup);
+      
+      const lines = result.trim().split('\n');
+      expect(lines).toHaveLength(3); // header + 2 data rows
+      expect(lines[0]).toBe('"Date","Payee","Memo","Outflow","Inflow"');
+      expect(lines[1]).toBe('"2024-01-01","Purchase","Groceries","50.00",""');
+      expect(lines[2]).toBe('"2024-01-02","Salary","Monthly pay","","1000.00"');
+    });
+
+    test('should export to CSV format with new YNAB columns', () => {
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Amount'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Amount': 'Amount'
+      };
+      
+      const result = dataObject.converted_csv(null, ynab_cols, lookup);
+      
+      const lines = result.trim().split('\n');
+      expect(lines).toHaveLength(3);
+      expect(lines[0]).toBe('"Date","Payee","Memo","Amount"');
+      expect(lines[1]).toBe('"2024-01-01","Purchase","Groceries","-50.00"');
+      expect(lines[2]).toBe('"2024-01-02","Salary","Monthly pay","1000.00"');
+    });
+
+    test('should properly escape quotes in values', () => {
+      dataObject.base_json = {
+        data: [
+          { 'Date': '2024-01-01', 'Description': 'Store "ABC"', 'Amount': '-50.00', 'Notes': 'Bought "stuff"' }
+        ],
+        meta: { fields: ['Date', 'Description', 'Amount', 'Notes'] }
+      };
+      
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Amount'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Amount': 'Amount'
+      };
+      
+      const result = dataObject.converted_csv(null, ynab_cols, lookup);
+      
+      const lines = result.trim().split('\n');
+      expect(lines[1]).toBe('"2024-01-01","Store ""ABC""","Bought ""stuff""","-50.00"');
+    });
+
+    test('should trim values', () => {
+      dataObject.base_json = {
+        data: [
+          { 'Date': '  2024-01-01  ', 'Description': '  Purchase  ', 'Amount': '  -50.00  ', 'Notes': '  Groceries  ' }
+        ],
+        meta: { fields: ['Date', 'Description', 'Amount', 'Notes'] }
+      };
+      
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Amount'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Amount': 'Amount'
+      };
+      
+      const result = dataObject.converted_csv(null, ynab_cols, lookup);
+      
+      const lines = result.trim().split('\n');
+      expect(lines[1]).toBe('"2024-01-01","Purchase","Groceries","-50.00"');
+    });
+
+    test('should handle empty values', () => {
+      dataObject.base_json = {
+        data: [
+          { 'Date': '2024-01-01', 'Description': '', 'Amount': '-50.00', 'Notes': null }
+        ],
+        meta: { fields: ['Date', 'Description', 'Amount', 'Notes'] }
+      };
+      
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Amount'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Amount': 'Amount'
+      };
+      
+      const result = dataObject.converted_csv(null, ynab_cols, lookup);
+      
+      const lines = result.trim().split('\n');
+      expect(lines[1]).toBe('"2024-01-01","","","-50.00"');
+    });
+
+    test('should respect limit parameter', () => {
+      dataObject.base_json = {
+        data: [
+          { 'Date': '2024-01-01', 'Description': 'Purchase 1', 'Amount': '-50.00', 'Notes': 'Note 1' },
+          { 'Date': '2024-01-02', 'Description': 'Purchase 2', 'Amount': '-60.00', 'Notes': 'Note 2' },
+          { 'Date': '2024-01-03', 'Description': 'Purchase 3', 'Amount': '-70.00', 'Notes': 'Note 3' }
+        ],
+        meta: { fields: ['Date', 'Description', 'Amount', 'Notes'] }
+      };
+      
+      const ynab_cols = ['Date', 'Payee', 'Memo', 'Amount'];
+      const lookup = {
+        'Date': 'Date',
+        'Payee': 'Description',
+        'Memo': 'Notes',
+        'Amount': 'Amount'
+      };
+      
+      const result = dataObject.converted_csv(2, ynab_cols, lookup);
+      
+      const lines = result.trim().split('\n');
+      expect(lines).toHaveLength(3); // header + 2 rows (limited)
+      expect(lines[1]).toContain('Purchase 1');
+      expect(lines[2]).toContain('Purchase 2');
+    });
+  });
 });
