@@ -302,18 +302,13 @@ describe('ParseController', () => {
       expect(result).toBe('Date,Payee,Amount\n2024-01-01,Store,-50.00');
     });
 
-    test('should create download file with proper filename', () => {
+    test('should create download file with proper filename and encoding', () => {
       const mockAnchor = {
         href: '',
         target: '',
         download: '',
         click: jest.fn()
       };
-      
-      // Mock global functions
-      global.btoa = jest.fn(() => 'base64data');
-      global.unescape = jest.fn((str) => str);
-      global.encodeURIComponent = jest.fn((str) => str);
       
       // Mock Date constructor to return a specific date
       const mockDate = new Date('2024-01-01');
@@ -324,16 +319,27 @@ describe('ParseController', () => {
       global.document.createElement = jest.fn(() => mockAnchor);
       global.document.body.appendChild = jest.fn();
       
-      $scope.data_object.converted_csv.mockReturnValue('test,data\n1,2');
+      // Use realistic CSV data with special characters to test encoding
+      const csvData = 'Date,Payee,Memo,Amount\n2024-01-01,"Store ""ABC""","Café & Groceries","-$50.00"';
+      $scope.data_object.converted_csv.mockReturnValue(csvData);
       
       $scope.downloadFile();
       
+      // Verify DOM interactions
       expect(global.document.createElement).toHaveBeenCalledWith('a');
-      expect(mockAnchor.href).toBe('data:attachment/csv;base64,base64data');
       expect(mockAnchor.target).toBe('_blank');
       expect(mockAnchor.download).toBe('ynab_data_20240101.csv');
       expect(global.document.body.appendChild).toHaveBeenCalledWith(mockAnchor);
       expect(mockAnchor.click).toHaveBeenCalled();
+      
+      // Verify the actual encoding pipeline: btoa(unescape(encodeURIComponent(csvData)))
+      const expectedHref = 'data:attachment/csv;base64,' + btoa(unescape(encodeURIComponent(csvData)));
+      expect(mockAnchor.href).toBe(expectedHref);
+      
+      // Verify we can decode it back to the original CSV data
+      const base64Part = mockAnchor.href.split('data:attachment/csv;base64,')[1];
+      const decodedData = decodeURIComponent(escape(atob(base64Part)));
+      expect(decodedData).toBe(csvData);
       
       // Restore Date mock
       global.Date.mockRestore();
