@@ -340,4 +340,6 @@ describe('AngularJS Directives', () => {
       expect(mockScope.$apply).not.toHaveBeenCalled();
     });
   });
+
+  // TODO: Add Excel directive tests (currently complex due to sophisticated file handling logic)
 });

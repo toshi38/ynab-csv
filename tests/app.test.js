@@ -16,10 +16,14 @@ global.angular = {
 // Mock DataObject
 global.DataObject = jest.fn(() => ({
   parseCsv: jest.fn(),
+  parseExcel: jest.fn(),
+  isExcelFile: jest.fn(),
   converted_json: jest.fn(),
   converted_csv: jest.fn(),
   fields: jest.fn(() => []),
-  rows: jest.fn(() => [])
+  rows: jest.fn(() => []),
+  worksheetNames: [],
+  currentWorksheet: null
 }));
 
 // Mock document
@@ -343,6 +347,407 @@ describe('ParseController', () => {
       
       // Restore Date mock
       global.Date.mockRestore();
+    });
+  });
+
+  describe('Excel Helper Functions', () => {
+    test('isExcelFile should detect Excel files correctly', () => {
+      expect($scope.isExcelFile('test.xlsx')).toBe(true);
+      expect($scope.isExcelFile('test.xls')).toBe(true);
+      expect($scope.isExcelFile('test.xlsm')).toBe(true);
+      expect($scope.isExcelFile('test.xlsb')).toBe(true);
+      expect($scope.isExcelFile('TEST.XLSX')).toBe(true); // case insensitive
+      expect($scope.isExcelFile('document.xlsx')).toBe(true);
+    });
+
+    test('isExcelFile should reject non-Excel files', () => {
+      expect($scope.isExcelFile('test.csv')).toBe(false);
+      expect($scope.isExcelFile('test.txt')).toBe(false);
+      expect($scope.isExcelFile('test.pdf')).toBe(false);
+      expect($scope.isExcelFile('document.doc')).toBe(false);
+      expect($scope.isExcelFile('file.json')).toBe(false);
+    });
+
+    test('isExcelFile should handle edge cases', () => {
+      expect($scope.isExcelFile('')).toBe(false);
+      expect($scope.isExcelFile(null)).toBe(false);
+      expect($scope.isExcelFile(undefined)).toBe(false);
+      expect($scope.isExcelFile('file')).toBe(false); // no extension
+      expect($scope.isExcelFile('file.')).toBe(false); // empty extension
+      expect($scope.isExcelFile('.xlsx')).toBe(true); // hidden file
+    });
+
+    test('getFileType should return correct format strings for Excel files', () => {
+      expect($scope.getFileType('test.xlsx')).toBe('XLSX');
+      expect($scope.getFileType('test.xls')).toBe('XLS');
+      expect($scope.getFileType('test.xlsm')).toBe('XLSM');
+      expect($scope.getFileType('test.xlsb')).toBe('XLSB');
+      expect($scope.getFileType('TEST.XLSX')).toBe('XLSX'); // case insensitive
+    });
+
+    test('getFileType should return CSV for non-Excel files', () => {
+      expect($scope.getFileType('test.csv')).toBe('CSV');
+      expect($scope.getFileType('test.txt')).toBe('CSV');
+      expect($scope.getFileType('test.pdf')).toBe('CSV');
+      expect($scope.getFileType('document.doc')).toBe('CSV');
+    });
+
+    test('getFileType should handle edge cases', () => {
+      expect($scope.getFileType('')).toBe('');
+      expect($scope.getFileType(null)).toBe('');
+      expect($scope.getFileType(undefined)).toBe('');
+      expect($scope.getFileType('file')).toBe('CSV'); // no extension
+      expect($scope.getFileType('file.')).toBe('CSV'); // empty extension
+    });
+  });
+
+  describe('Worksheet Selection', () => {
+    beforeEach(() => {
+      // Set up Excel file scenario
+      $scope.filename = 'test.xlsx';
+      $scope.data = { source: 'excel_binary_data' };
+      $scope.data_object.parseExcel = jest.fn();
+      $scope.data_object.converted_json = jest.fn(() => [
+        { Date: '2024-01-01', Payee: 'Excel Store', Amount: '-75.00' }
+      ]);
+    });
+
+    test('worksheetChosen should re-parse Excel with new worksheet index', () => {
+      $scope.worksheetChosen(2);
+
+      expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
+        'excel_binary_data',
+        'test.xlsx',
+        $scope.file.chosenEncoding,
+        $scope.file.startAtRow,
+        $scope.profile.extraRow,
+        null, // auto delimiter becomes null
+        2 // worksheet index
+      );
+
+      expect($scope.data_object.converted_json).toHaveBeenCalledWith(
+        10,
+        $scope.ynab_cols,
+        $scope.ynab_map,
+        $scope.inverted_outflow
+      );
+    });
+
+    test('worksheetChosen should handle custom delimiter', () => {
+      $scope.file.chosenDelimiter = ';';
+
+      $scope.worksheetChosen(1);
+
+      expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
+        'excel_binary_data',
+        'test.xlsx',
+        $scope.file.chosenEncoding,
+        $scope.file.startAtRow,
+        $scope.profile.extraRow,
+        ';', // custom delimiter
+        1
+      );
+    });
+
+    test('worksheetChosen should handle parseExcel errors gracefully', () => {
+      // Mock console.error and alert to avoid noise in tests
+      global.console.error = jest.fn();
+      global.alert = jest.fn();
+      
+      // Make parseExcel throw an error
+      $scope.data_object.parseExcel.mockImplementation(() => {
+        throw new Error('Invalid worksheet');
+      });
+
+      // This should not throw
+      expect(() => {
+        $scope.worksheetChosen(5);
+      }).not.toThrow();
+
+      expect(global.console.error).toHaveBeenCalledWith('Error switching worksheet:', expect.any(Error));
+      expect(global.alert).toHaveBeenCalledWith('Error switching worksheet: Invalid worksheet');
+      
+      // Clean up mocks
+      delete global.console.error;
+      delete global.alert;
+    });
+
+    test('worksheetChosen should do nothing if filename is not set', () => {
+      $scope.filename = null;
+
+      $scope.worksheetChosen(1);
+
+      expect($scope.data_object.parseExcel).not.toHaveBeenCalled();
+      expect($scope.data_object.converted_json).not.toHaveBeenCalled();
+    });
+
+    test('worksheetChosen should do nothing if data.source is not set', () => {
+      $scope.data.source = null;
+
+      $scope.worksheetChosen(1);
+
+      expect($scope.data_object.parseExcel).not.toHaveBeenCalled();
+      expect($scope.data_object.converted_json).not.toHaveBeenCalled();
+    });
+
+    test('worksheetChosen should do nothing for non-Excel files', () => {
+      $scope.filename = 'test.csv';
+
+      $scope.worksheetChosen(1);
+
+      expect($scope.data_object.parseExcel).not.toHaveBeenCalled();
+      expect($scope.data_object.converted_json).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Excel File Processing Integration', () => {
+    beforeEach(() => {
+      // Set up data object mock methods for Excel
+      $scope.data_object.parseExcel = jest.fn();
+      $scope.data_object.isExcelFile = jest.fn();
+      $scope.data_object.converted_json = jest.fn(() => [
+        { Date: '2024-01-01', Payee: 'Excel Store', Amount: '-75.00' }
+      ]);
+      $scope.data_object.worksheetNames = ['Sheet1', 'Data'];
+    });
+
+    test('data.source watcher should call parseExcel for Excel files', () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks  
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Set up Excel file scenario
+      $scope.filename = 'test.xlsx';
+      $scope.data_object.isExcelFile.mockReturnValue(true);
+      $scope.file.chosenDelimiter = 'auto';
+      $scope.file.startAtRow = 2;
+      $scope.profile.extraRow = true;
+      
+      const excelData = 'excel_binary_data';
+      
+      // Simulate Excel file data change
+      watchCallbacks['data.source'](excelData, null);
+      
+      expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
+        excelData,
+        'test.xlsx',
+        $scope.file.chosenEncoding,
+        $scope.file.startAtRow,
+        $scope.profile.extraRow,
+        null, // auto delimiter becomes null
+        0 // default worksheet index
+      );
+      
+      expect($scope.data_object.converted_json).toHaveBeenCalledWith(
+        10,
+        $scope.ynab_cols,
+        $scope.ynab_map,
+        $scope.inverted_outflow
+      );
+
+      // Verify worksheet initialization
+      expect($scope.file.selectedWorksheet).toBe(0);
+    });
+
+    test('data.source watcher should call parseExcel with custom delimiter', () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Set up Excel file scenario with custom delimiter
+      $scope.filename = 'test.xlsx';
+      $scope.data_object.isExcelFile.mockReturnValue(true);
+      $scope.file.chosenDelimiter = ';';
+      
+      const excelData = 'excel_binary_data';
+      
+      watchCallbacks['data.source'](excelData, null);
+      
+      expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
+        excelData,
+        'test.xlsx',
+        $scope.file.chosenEncoding,
+        $scope.file.startAtRow,
+        $scope.profile.extraRow,
+        ';', // custom delimiter
+        0
+      );
+    });
+
+    test('data.source watcher should call parseCsv for CSV files', () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Set up CSV file scenario
+      $scope.filename = 'test.csv';
+      $scope.data_object.isExcelFile.mockReturnValue(false);
+      $scope.file.chosenDelimiter = 'auto';
+      
+      const csvData = 'Date,Payee,Amount\n2024-01-01,Store,-50.00';
+      
+      watchCallbacks['data.source'](csvData, null);
+      
+      expect($scope.data_object.parseCsv).toHaveBeenCalledWith(
+        csvData,
+        $scope.file.chosenEncoding,
+        $scope.file.startAtRow,
+        $scope.profile.extraRow
+      );
+      
+      expect($scope.data_object.parseExcel).not.toHaveBeenCalled();
+    });
+
+    test('data.source watcher should handle Excel parsing errors', () => {
+      // Mock console.error and alert to avoid noise in tests
+      global.console.error = jest.fn();
+      global.alert = jest.fn();
+
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Set up Excel file scenario
+      $scope.filename = 'test.xlsx';
+      $scope.data_object.isExcelFile.mockReturnValue(true);
+      
+      // Make parseExcel throw an error
+      $scope.data_object.parseExcel.mockImplementation(() => {
+        throw new Error('Corrupted Excel file');
+      });
+      
+      const excelData = 'corrupted_excel_data';
+      
+      // This should not crash the watcher
+      expect(() => {
+        watchCallbacks['data.source'](excelData, null);
+      }).not.toThrow();
+      
+      expect(global.console.error).toHaveBeenCalledWith('Error parsing file:', expect.any(Error));
+      expect(global.alert).toHaveBeenCalledWith('Error parsing file: Corrupted Excel file');
+      
+      // Clean up mocks
+      delete global.console.error;
+      delete global.alert;
+    });
+
+    test('data.source watcher should not process empty data', () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Test empty data scenarios
+      watchCallbacks['data.source']('', null);
+      watchCallbacks['data.source'](null, null);
+      watchCallbacks['data.source'](undefined, null);
+      
+      expect($scope.data_object.parseExcel).not.toHaveBeenCalled();
+      expect($scope.data_object.parseCsv).not.toHaveBeenCalled();
+    });
+
+    test('worksheet initialization should work for Excel files', () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Set up Excel file scenario
+      $scope.filename = 'test.xlsx';
+      $scope.data_object.isExcelFile.mockReturnValue(true);
+      $scope.data_object.worksheetNames = ['Sheet1', 'Data', 'Summary'];
+      
+      const excelData = 'excel_binary_data';
+      
+      watchCallbacks['data.source'](excelData, null);
+      
+      // Should initialize selectedWorksheet to 0 for multi-sheet Excel files
+      expect($scope.file.selectedWorksheet).toBe(0);
+    });
+
+    test('worksheet initialization should not occur for CSV files', () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+      
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require('../src/app.js');
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Set up CSV file scenario
+      $scope.filename = 'test.csv';
+      $scope.data_object.isExcelFile.mockReturnValue(false);
+      
+      const csvData = 'Date,Payee,Amount\n2024-01-01,Store,-50.00';
+      
+      watchCallbacks['data.source'](csvData, null);
+      
+      // Should not set selectedWorksheet for CSV files
+      expect($scope.file.selectedWorksheet).toBeUndefined();
     });
   });
 });
