@@ -284,7 +284,8 @@ angular.element(document).ready(function () {
         chosenEncoding: $scope.profile.chosenEncoding || "UTF-8",
         chosenDelimiter: $scope.profile.chosenDelimiter || "auto",
         startAtRow: $scope.profile.startAtRow,
-        extraRow: $scope.profile.extraRow || false
+        extraRow: $scope.profile.extraRow || false,
+        selectedWorksheet: 0  // Use index as source of truth
       };
       $scope.data_object = new DataObject();
       $scope.filename = null;
@@ -352,6 +353,8 @@ angular.element(document).ready(function () {
         try {
           // Check if this is an Excel file using the extracted filename
           if (filename && $scope.data_object.isExcelFile(filename)) {
+            // Store the original filename for later use in worksheet switching
+            $scope.originalFilename = filename;
             // Parse as Excel file using the actual data
             $scope.data_object.parseExcel(
               actualData, 
@@ -372,8 +375,10 @@ angular.element(document).ready(function () {
           }
           
           // Initialize worksheet selection for Excel files
-          if ($scope.filename && $scope.isExcelFile($scope.filename) && $scope.data_object.worksheetNames) {
-            $scope.file.selectedWorksheet = 0; // Default to first worksheet
+          if ($scope.filename && $scope.isExcelFile($scope.filename) && $scope.data_object.worksheetNames && $scope.data_object.worksheetNames.length > 0) {
+            $scope.file.selectedWorksheet = 0; // Default to first worksheet (index 0)
+            // Force Angular to update the binding
+            $scope.$evalAsync();
           }
           
           $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
@@ -422,22 +427,39 @@ angular.element(document).ready(function () {
       }
       return 'CSV';
     };
-    
+
     // Handle worksheet selection for Excel files
     $scope.worksheetChosen = function(worksheetIndex) {
-      if ($scope.filename && $scope.data.source && $scope.isExcelFile($scope.filename)) {
+      if (($scope.filename || $scope.originalFilename) && $scope.data.source && $scope.isExcelFile($scope.filename || $scope.originalFilename)) {
         try {
+          var actualData = $scope.data.source;
+
+          // Extract actual data from wrapper objects (same logic as in $watch)
+          if ($scope.data.source.isArrayBuffer && $scope.data.source.data) {
+            actualData = $scope.data.source.data;
+          } else if ($scope.data.source.isString && $scope.data.source.data) {
+            actualData = $scope.data.source.data;
+          } else if (typeof $scope.data.source === 'object' && $scope.data.source.data) {
+            actualData = $scope.data.source.data;
+          }
+
+          // Convert to number if it's a string (from ng-value)
+          var index = typeof worksheetIndex === 'string' ? parseInt(worksheetIndex, 10) : worksheetIndex;
+
           // Re-parse the Excel file with the selected worksheet
           $scope.data_object.parseExcel(
-            $scope.data.source, 
-            $scope.filename, 
-            $scope.file.chosenEncoding, 
-            $scope.file.startAtRow, 
-            $scope.profile.extraRow, 
+            actualData,
+            $scope.filename || $scope.originalFilename,
+            $scope.file.chosenEncoding,
+            $scope.file.startAtRow,
+            $scope.profile.extraRow,
             $scope.file.chosenDelimiter == "auto" ? null : $scope.file.chosenDelimiter,
-            worksheetIndex
+            index
           );
+
           $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
+          // Force Angular to update the view
+          $scope.$evalAsync();
         } catch (error) {
           console.error('Error switching worksheet:', error);
           alert('Error switching worksheet: ' + error.message);
