@@ -114,6 +114,43 @@ describe('FileUtils', () => {
     });
   });
 
+  describe('createDataWrapper', () => {
+    test('should create data wrapper with content and filename', () => {
+      const content = 'test data content';
+      const filename = 'test.csv';
+
+      const wrapper = FileUtils.createDataWrapper(content, filename);
+
+      expect(wrapper).toEqual({
+        data: 'test data content',
+        filename: 'test.csv'
+      });
+    });
+
+    test('should handle different content types', () => {
+      // Test with different data types
+      const binaryData = new ArrayBuffer(8);
+      const wrapper1 = FileUtils.createDataWrapper(binaryData, 'test.xlsx');
+      expect(wrapper1.data).toBe(binaryData);
+      expect(wrapper1.filename).toBe('test.xlsx');
+
+      const textData = 'csv,data,here';
+      const wrapper2 = FileUtils.createDataWrapper(textData, 'data.csv');
+      expect(wrapper2.data).toBe(textData);
+      expect(wrapper2.filename).toBe('data.csv');
+    });
+
+    test('should handle empty or null values', () => {
+      const wrapper1 = FileUtils.createDataWrapper('', '');
+      expect(wrapper1.data).toBe('');
+      expect(wrapper1.filename).toBe('');
+
+      const wrapper2 = FileUtils.createDataWrapper(null, null);
+      expect(wrapper2.data).toBe(null);
+      expect(wrapper2.filename).toBe(null);
+    });
+  });
+
   describe('constants', () => {
     test('should provide file extension constants', () => {
       const constants = FileUtils.constants();
@@ -151,3 +188,4 @@ describe('FileUtils', () => {
     });
   });
 });
+

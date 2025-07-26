@@ -38,13 +38,21 @@
     };
   }
 
+  function createDataWrapper(content, filename) {
+    return {
+      data: content,
+      filename: filename
+    };
+  }
+
   // Public API
   var FileUtils = {
     getFileExtension: getFileExtension,
     isExcelFile: isExcelFile,
     getExcelReadingMethod: getExcelReadingMethod,
     getFileType: getFileType,
-    constants: getFileTypeConstants
+    constants: getFileTypeConstants,
+    createDataWrapper: createDataWrapper
   };
 
   // Support both browser and Node.js environments
@@ -58,3 +66,4 @@
     global.FileUtils = FileUtils;
   }
 })();
+

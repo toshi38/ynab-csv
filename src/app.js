@@ -45,27 +45,14 @@ Date.prototype.yyyymmdd = function () {
 
 angular.element(document).ready(function () {
   // Shared helper functions for file processing
-  function createFileDataWrapper(content, filename) {
-    return {
-      data: content,
-      filename: filename
-    };
-  }
 
-  function isExcelFileHelper(filename) {
-    if (!filename) return false;
-    if (window.DataObject) {
-      return new window.DataObject().isExcelFile(filename);
-    }
-    return FileUtils.isExcelFile(filename);
-  }
 
   function processFile(file, scope, targetProperty, attributes) {
     var reader = new FileReader();
 
     reader.onload = function(loadEvent) {
       scope.$apply(function() {
-        var fileData = createFileDataWrapper(loadEvent.target.result, file.name);
+        var fileData = FileUtils.createDataWrapper(loadEvent.target.result, file.name);
         scope.filename = file.name;
         scope[targetProperty] = fileData;
       });
@@ -74,7 +61,7 @@ angular.element(document).ready(function () {
     reader.onerror = function(error) {
       console.error('FileReader error:', error);
     };
-    if (isExcelFileHelper(file.name)) {
+    if (FileUtils.isExcelFile(file.name)) {
       var method = FileUtils.getExcelReadingMethod(file.name);
       if (method === 'arrayBuffer') {
         reader.readAsArrayBuffer(file);
@@ -348,4 +335,5 @@ angular.element(document).ready(function () {
   });
   angular.bootstrap(document, ["app"]);
 });
+
 
