@@ -11,36 +11,46 @@ window.DataObject = class DataObject {
   }
 
   // Parse Excel file and convert to CSV format that existing parseCsv can handle
-  parseExcel(fileContent, filename, encoding, startAtRow=1, extraRow=false, delimiter=null, worksheetIndex=0) {
+  parseExcel(
+    fileContent,
+    filename,
+    encoding,
+    startAtRow = 1,
+    extraRow = false,
+    delimiter = null,
+    worksheetIndex = 0,
+  ) {
     try {
       // Determine the appropriate data type for SheetJS based on file format
-      let dataType = 'binary';
+      let dataType = "binary";
 
-      if (FileUtils.getExcelReadingMethod(filename) === 'arrayBuffer') {
+      if (FileUtils.getExcelReadingMethod(filename) === "arrayBuffer") {
         // XLS and XLSB files use OLE2 format and should be read as array buffer
-        dataType = 'array';
+        dataType = "array";
         // Convert ArrayBuffer to Uint8Array if needed
         if (fileContent instanceof ArrayBuffer) {
           fileContent = new Uint8Array(fileContent);
         }
       } else {
         // XLSX and XLSM files are ZIP-based and can be read as binary string
-        dataType = 'binary';
+        dataType = "binary";
       }
 
       // Read the Excel file using SheetJS with appropriate data type
       const workbook = XLSX.read(fileContent, { type: dataType });
 
       // Validate that we have a proper workbook
-      if (!workbook || typeof workbook !== 'object') {
-        throw new Error('Invalid Excel file: Unable to parse workbook structure');
+      if (!workbook || typeof workbook !== "object") {
+        throw new Error(
+          "Invalid Excel file: Unable to parse workbook structure",
+        );
       }
 
       // Get worksheet names for potential multi-sheet support
       const worksheetNames = workbook.SheetNames;
 
       if (!worksheetNames || worksheetNames.length === 0) {
-        throw new Error('No worksheets found in Excel file');
+        throw new Error("No worksheets found in Excel file");
       }
 
       // Use specified worksheet index or default to first sheet
@@ -50,7 +60,9 @@ window.DataObject = class DataObject {
       } else if (worksheetIndex === 0 || worksheetIndex === undefined) {
         worksheetName = worksheetNames[0];
       } else {
-        throw new Error(`Worksheet index ${worksheetIndex} is out of range. Available sheets: ${worksheetNames.length}`);
+        throw new Error(
+          `Worksheet index ${worksheetIndex} is out of range. Available sheets: ${worksheetNames.length}`,
+        );
       }
 
       const worksheet = workbook.Sheets[worksheetName];
@@ -64,12 +76,14 @@ window.DataObject = class DataObject {
 
       // Validate that we got meaningful CSV content
       if (!csvContent || csvContent.trim().length === 0) {
-        throw new Error('No data found in selected worksheet');
+        throw new Error("No data found in selected worksheet");
       }
 
       // Additional validation: check if content looks like binary garbage
       if (this._containsBinaryGarbage(csvContent)) {
-        throw new Error('Excel file appears to be corrupted or in an unsupported format');
+        throw new Error(
+          "Excel file appears to be corrupted or in an unsupported format",
+        );
       }
 
       // Store worksheet info for potential UI use
@@ -77,10 +91,15 @@ window.DataObject = class DataObject {
       this.currentWorksheet = worksheetName;
 
       // Now parse the CSV content using existing parseCsv method
-      return this.parseCsv(csvContent, encoding, startAtRow, extraRow, delimiter);
-
+      return this.parseCsv(
+        csvContent,
+        encoding,
+        startAtRow,
+        extraRow,
+        delimiter,
+      );
     } catch (error) {
-      console.error('Error parsing Excel file:', error);
+      console.error("Error parsing Excel file:", error);
       throw new Error(`Failed to parse Excel file: ${error.message}`);
     }
   }
@@ -88,40 +107,42 @@ window.DataObject = class DataObject {
   // Helper method to detect if CSV content contains binary garbage
   _containsBinaryGarbage(csvContent) {
     // Check for excessive non-printable characters
-    const nonPrintableCount = (csvContent.match(/[\x00-\x08\x0E-\x1F\x7F-\xFF]/g) || []).length;
+    const nonPrintableCount = (
+      csvContent.match(/[\x00-\x08\x0E-\x1F\x7F-\xFF]/g) || []
+    ).length;
     const totalLength = csvContent.length;
 
     // If more than 30% of content is non-printable, it's likely binary garbage
-    return totalLength > 0 && (nonPrintableCount / totalLength) > 0.3;
+    return totalLength > 0 && nonPrintableCount / totalLength > 0.3;
   }
 
   // Parse base csv file as JSON. This will be easier to work with.
   // It uses http://papaparse.com/ for handling parsing
-  parseCsv(csv, encoding, startAtRow=1, extraRow=false, delimiter=null) {
+  parseCsv(csv, encoding, startAtRow = 1, extraRow = false, delimiter = null) {
     let existingHeaders = [];
     let config = {
       header: true,
       skipEmptyLines: true,
-      beforeFirstChunk: function(chunk) {
+      beforeFirstChunk: function (chunk) {
         var rows = chunk.split("\n");
         var startIndex = startAtRow - 1;
         rows = rows.slice(startIndex);
 
         if (extraRow) {
-        // If first row duplication is turned on, we add the first row to the top of the set again.
+          // If first row duplication is turned on, we add the first row to the top of the set again.
           rows.unshift(rows[0]);
         }
 
         return rows.join("\n");
       },
-      transformHeader: function(header) {
+      transformHeader: function (header) {
         if (header.trim().length == 0) {
           header = "Unnamed column";
         }
         if (existingHeaders.indexOf(header) != -1) {
           let new_header = header;
           let counter = 0;
-          while(existingHeaders.indexOf(new_header) != -1){
+          while (existingHeaders.indexOf(new_header) != -1) {
             counter++;
             new_header = header + " (" + counter + ")";
           }
@@ -129,10 +150,10 @@ window.DataObject = class DataObject {
         }
         existingHeaders.push(header);
         return header;
-      }
-    }
+      },
+    };
     if (delimiter !== null) {
-      config.delimiter = delimiter
+      config.delimiter = delimiter;
     }
 
     var result = Papa.parse(csv, config);
@@ -177,26 +198,25 @@ window.DataObject = class DataObject {
             if (cell) {
               switch (col) {
                 case "Outflow":
-
-                  if (lookup['Outflow'] == lookup['Inflow']) {
+                  if (lookup["Outflow"] == lookup["Inflow"]) {
                     if (!inverted_outflow) {
-                      tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
+                      tmp_row[col] = cell.startsWith("-") ? cell.slice(1) : "";
                     } else {
-                      tmp_row[col] = cell.startsWith('-') ? "" : cell;
+                      tmp_row[col] = cell.startsWith("-") ? "" : cell;
                     }
                   } else {
-                    tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : cell;
+                    tmp_row[col] = cell.startsWith("-") ? cell.slice(1) : cell;
                   }
                   break;
                 case "Inflow":
-                  if (lookup['Outflow'] == lookup['Inflow']) {
+                  if (lookup["Outflow"] == lookup["Inflow"]) {
                     if (!inverted_outflow) {
-                      tmp_row[col] = cell.startsWith('-') ? "" : cell;
+                      tmp_row[col] = cell.startsWith("-") ? "" : cell;
                     } else {
-                      tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : "";
+                      tmp_row[col] = cell.startsWith("-") ? cell.slice(1) : "";
                     }
                   } else {
-                    tmp_row[col] = cell.startsWith('-') ? cell.slice(1) : cell;
+                    tmp_row[col] = cell.startsWith("-") ? cell.slice(1) : cell;
                   }
                   break;
                 default:
@@ -218,18 +238,20 @@ window.DataObject = class DataObject {
     }
     // Papa.unparse string
     string = '"' + ynab_cols.join('","') + '"\n';
-    this.converted_json(limit, ynab_cols, lookup, inverted_outflow).forEach(function (row) {
-      var row_values;
-      row_values = [];
-      ynab_cols.forEach(function (col) {
-        var row_value;
-        row_value = row[col] || "";
-        // escape text which might already have a quote in it
-        row_value = row_value.replace(/"/g, '""').trim();
-        return row_values.push(row_value);
-      });
-      return (string += '"' + row_values.join('","') + '"\n');
-    });
+    this.converted_json(limit, ynab_cols, lookup, inverted_outflow).forEach(
+      function (row) {
+        var row_values;
+        row_values = [];
+        ynab_cols.forEach(function (col) {
+          var row_value;
+          row_value = row[col] || "";
+          // escape text which might already have a quote in it
+          row_value = row_value.replace(/"/g, '""').trim();
+          return row_values.push(row_value);
+        });
+        return (string += '"' + row_values.join('","') + '"\n');
+      },
+    );
     return string;
   }
 };

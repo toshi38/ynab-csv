@@ -15,4 +15,4 @@ global.FileReader = jest.fn(() => ({
 }));
 
 // Load FileUtils module for all tests
-require('./src/file_utils.js');
+require("./src/file_utils.js");
