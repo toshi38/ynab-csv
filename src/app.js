@@ -44,24 +44,54 @@ Date.prototype.yyyymmdd = function () {
 };
 
 angular.element(document).ready(function () {
+  // Shared helper functions for file processing
+
+
+  function processFile(file, scope, targetProperty, attributes) {
+    var reader = new FileReader();
+
+    reader.onload = function(loadEvent) {
+      scope.$apply(function() {
+        var fileData = FileUtils.createDataWrapper(loadEvent.target.result, file.name);
+        scope.filename = file.name;
+        scope[targetProperty] = fileData;
+      });
+    };
+
+    reader.onerror = function(error) {
+      console.error('FileReader error:', error);
+    };
+    if (FileUtils.isExcelFile(file.name)) {
+      var method = FileUtils.getExcelReadingMethod(file.name);
+      if (method === 'arrayBuffer') {
+        reader.readAsArrayBuffer(file);
+      } else {
+        reader.readAsBinaryString(file);
+      }
+    } else {
+      reader.readAsText(file, attributes.encoding);
+    }
+  }
+
   angular.module("app", []);
   angular.module("app").directive("fileread", [
     function () {
       return {
         scope: {
-          fileread: "="
+          fileread: "=",
+          filename: "="
         },
         link: function (scope, element, attributes) {
-          return element.bind("change", function (changeEvent) {
-            var reader;
-            reader = new FileReader();
-            reader.onload = function (loadEvent) {
-              return scope.$apply(function () {
-                scope.fileread = loadEvent.target.result;
-              });
-            };
-            reader.readAsText(changeEvent.target.files[0], attributes.encoding);
-          });
+          try {
+            element.bind("change", function (changeEvent) {
+              var file = changeEvent.target.files[0];
+              if (!file) return;
+
+              processFile(file, scope, 'fileread', attributes);
+            });
+          } catch (error) {
+            console.error('Error in fileread directive:', error);
+          }
         }
       };
     }
@@ -73,7 +103,8 @@ angular.element(document).ready(function () {
         replace: true,
         template: '<div class="dropzone"><div ng-transclude></div></div>',
         scope: {
-          dropzone: "="
+          dropzone: "=",
+          filename: "="
         },
         link: function (scope, element, attributes) {
           element.bind("dragenter", function (event) {
@@ -96,21 +127,18 @@ angular.element(document).ready(function () {
             event.preventDefault();
           });
           element.bind("drop", function (event) {
-            var reader;
             element.removeClass("dragging");
             event.preventDefault();
             event.stopPropagation();
-            reader = new FileReader();
-            reader.onload = function (loadEvent) {
-              scope.$apply(function () {
-                scope.dropzone = loadEvent.target.result;
-              });
-            };
-            file = (event.dataTransfer || event.originalEvent.dataTransfer).files[0];
-            reader.readAsText(file, attributes.encoding);
+
+            var file = (event.dataTransfer || event.originalEvent.dataTransfer).files[0];
+            if (!file) return;
+
+            processFile(file, scope, 'dropzone', attributes);
           });
           element.bind("paste", function (event) {
             var items = (event.clipboardData || event.originalEvent.clipboardData).items;
+            var data;
             for (var i = 0; i < items.length; i++) {
               if (items[i].type == 'text/plain') {
                 data = items[i];
@@ -157,9 +185,11 @@ angular.element(document).ready(function () {
         chosenEncoding: $scope.profile.chosenEncoding || "UTF-8",
         chosenDelimiter: $scope.profile.chosenDelimiter || "auto",
         startAtRow: $scope.profile.startAtRow,
-        extraRow: $scope.profile.extraRow || false
+        extraRow: $scope.profile.extraRow || false,
+        selectedWorksheet: 0  // Use index as source of truth
       };
       $scope.data_object = new DataObject();
+      $scope.filename = null;
     }
 
     $scope.setInitialScopeState();
@@ -198,14 +228,45 @@ angular.element(document).ready(function () {
       $scope.profile.columnFormat = $scope.ynab_cols
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     };
+
     $scope.$watch("data.source", function (newValue, oldValue) {
-      if (newValue && newValue.length > 0) {
-        if ($scope.file.chosenDelimiter == "auto") {
-          $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow);
-        } else {
-          $scope.data_object.parseCsv(newValue, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow, $scope.file.chosenDelimiter);
+      if (newValue && newValue.data && newValue.filename) {
+        try {
+          // Store filename for later use in worksheet switching
+          $scope.currentFilename = newValue.filename;
+
+          // Process file based on type
+          if ($scope.data_object.isExcelFile(newValue.filename)) {
+            // Parse as Excel file
+            $scope.data_object.parseExcel(
+              newValue.data,
+              newValue.filename,
+              $scope.file.chosenEncoding,
+              $scope.file.startAtRow,
+              $scope.profile.extraRow,
+              $scope.file.chosenDelimiter == "auto" ? null : $scope.file.chosenDelimiter,
+              0 // default to first worksheet
+            );
+
+            // Initialize worksheet selection for multi-sheet Excel files
+            if ($scope.data_object.worksheetNames && $scope.data_object.worksheetNames.length > 0) {
+              $scope.file.selectedWorksheet = 0; // Default to first worksheet (index 0)
+              $scope.$evalAsync();
+            }
+          } else {
+            // Parse as CSV file
+            if ($scope.file.chosenDelimiter == "auto") {
+              $scope.data_object.parseCsv(newValue.data, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow);
+            } else {
+              $scope.data_object.parseCsv(newValue.data, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow, $scope.file.chosenDelimiter);
+            }
+          }
+
+          $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
+        } catch (error) {
+          console.error('Error parsing file:', error);
+          alert('Error parsing file: ' + error.message);
         }
-        $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
       }
     });
     $scope.$watch("inverted_outflow", function (newValue, oldValue) {
@@ -231,6 +292,34 @@ angular.element(document).ready(function () {
     $scope.invert_flows = function () {
       $scope.inverted_outflow = !$scope.inverted_outflow;
     }
+
+
+    // Handle worksheet selection for Excel files
+    $scope.worksheetChosen = function(worksheetIndex) {
+      if ($scope.currentFilename && $scope.data.source && FileUtils.isExcelFile($scope.currentFilename)) {
+        try {
+          // Convert to number if it's a string (from ng-value)
+          var index = typeof worksheetIndex === 'string' ? parseInt(worksheetIndex, 10) : worksheetIndex;
+
+          // Re-parse the Excel file with the selected worksheet
+          $scope.data_object.parseExcel(
+            $scope.data.source.data,
+            $scope.currentFilename,
+            $scope.file.chosenEncoding,
+            $scope.file.startAtRow,
+            $scope.profile.extraRow,
+            $scope.file.chosenDelimiter == "auto" ? null : $scope.file.chosenDelimiter,
+            index
+          );
+
+          $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
+          $scope.$evalAsync();
+        } catch (error) {
+          console.error('Error switching worksheet:', error);
+          alert('Error switching worksheet: ' + error.message);
+        }
+      }
+    };
     $scope.downloadFile = function () {
       var a;
       var date = new Date();
@@ -246,3 +335,5 @@ angular.element(document).ready(function () {
   });
   angular.bootstrap(document, ["app"]);
 });
+
+

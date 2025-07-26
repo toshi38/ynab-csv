@@ -1,7 +1,7 @@
 # ynab-csv
 
 
-Tool for making your CSV files ready to import into YNAB.
+Tool for making your CSV and Excel files ready to import into YNAB.
 
 http://aniav.github.io/ynab-csv/
 
@@ -9,9 +9,15 @@ http://aniav.github.io/ynab-csv/
 ## How to Use
 
 1. Visit the link above.
-2. Drop or select the the csv file you want to make ready for YNAB.
-3. For each column in the YNAB data file, choose which column you want to pull from your source data file.
-4. Save the new YNAB file and you are ready to import that right into YNAB!
+2. Drop or select the CSV or Excel file you want to make ready for YNAB.
+3. For Excel files with multiple worksheets, select the desired worksheet from the dropdown.
+4. For each column in the YNAB data file, choose which column you want to pull from your source data file.
+5. Save the new YNAB file and you are ready to import that right into YNAB!
+
+## Supported File Formats
+
+- **CSV files** (.csv) - All standard CSV formats with configurable delimiters and encodings
+- **Excel files** (.xlsx, .xls, .xlsm, .xlsb) - Full support for Excel spreadsheets including multi-sheet workbooks
 
 ## Multiple Profiles
 

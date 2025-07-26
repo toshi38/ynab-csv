@@ -59,7 +59,8 @@ describe('AngularJS Directives', () => {
       const directiveConfig = directiveFactory();
       
       expect(directiveConfig.scope).toEqual({
-        fileread: "="
+        fileread: "=",
+        filename: "="
       });
     });
 
@@ -123,7 +124,11 @@ describe('AngularJS Directives', () => {
       mockReader.onload(loadEvent);
       
       expect(mockScope.$apply).toHaveBeenCalled();
-      expect(mockScope.fileread).toBe('csv,data\ntest,value');
+      // For CSV files, the data is wrapped in an object with filename
+      expect(mockScope.fileread).toEqual({
+        data: 'csv,data\ntest,value',
+        filename: 'test.csv'
+      });
     });
   });
 
@@ -168,7 +173,8 @@ describe('AngularJS Directives', () => {
       expect(directiveConfig.replace).toBe(true);
       expect(directiveConfig.template).toBe('<div class="dropzone"><div ng-transclude></div></div>');
       expect(directiveConfig.scope).toEqual({
-        dropzone: "="
+        dropzone: "=",
+        filename: "="
       });
     });
 
@@ -333,4 +339,6 @@ describe('AngularJS Directives', () => {
       expect(mockScope.$apply).not.toHaveBeenCalled();
     });
   });
+
+  // TODO: Add Excel directive tests (currently complex due to sophisticated file handling logic)
 });

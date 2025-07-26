@@ -26,8 +26,10 @@
     ></script>
     <link rel="stylesheet" type="text/css" href="./app.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha512-dfX5uYVXzyU8+KHqj8bjo7UkOdg18PaOtpa48djpNbZHwExddghZ+ZmzWT06R5v6NSk3ZUfsH6FNEDepLx9hPQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.6.7/angular.js"></script>
 
+    <script src="src/file_utils.js"></script>
     <script src="src/data_object.js"></script>
     <script src="src/app.js"></script>
     <script src='https://js.sentry-cdn.com/9984f4ed07f54d7ca6107525f0d990a1.min.js' crossorigin="anonymous"></script>
@@ -37,7 +39,7 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-    
+
       gtag('config', 'G-ZNWHWW4QYB');
     </script>
   </head>
@@ -66,18 +68,20 @@
       </div>
     </div>
 
-    <div dropzone="data.source" encoding="{{file.chosenEncoding}}" delimiter="{{file.chosenDelimiter}}">
+    <div dropzone="data.source" filename="filename" encoding="{{file.chosenEncoding}}" delimiter="{{file.chosenDelimiter}}">
       <div class="container mx-auto show_on_load" style="width: 600px;">
         <br />
         <div id="upload_wrapper" ng-if="!data_object.base_json">
-          <div id="drop_text">Drop file</div>
+          <div id="drop_text">Drop CSV or Excel file</div>
           <form>
             <div class="fileUpload btn btn-info">
               <span>Or choose <i class="fa fa-folder-open"></i></span>
               <input
                 id="file"
                 type="file"
+                accept=".csv,.xlsx,.xls,.xlsm,.xlsb"
                 fileread="data.source"
+                filename="filename"
                 encoding="{{file.chosenEncoding}}"
                 delimiter="{{file.chosenDelimiter}}"
               />
@@ -123,7 +127,7 @@
                       class="form-control"
                     >
                     </select>
-                  </div>   
+                  </div>
                   <div class="form-check" style="margin-bottom: 12px;">
                     <input
                         id="extra_row"
@@ -134,7 +138,7 @@
                         value=""
                     >
                     <label for="extra_row" class="form-check-label">Fill header row from first line</label>
-                  </div>           
+                  </div>
                   <div class="form-group" ng-if="nonDefaultProfilesExist()">
                     <label for="profile">Bank profile</label>
                     <select
@@ -157,6 +161,22 @@
         </div>
 
         <div class="container" id="tool_wrapper" ng-if="data_object.base_json">
+          <!-- Excel worksheet selector for multi-sheet files -->
+          <div class="form-group mb-3" ng-if="data_object.worksheetNames && data_object.worksheetNames.length > 1">
+            <label for="worksheet">Excel worksheet:</label>
+            <select
+              id="worksheet"
+              ng-model="file.selectedWorksheet"
+              class="form-control"
+              ng-change="worksheetChosen(file.selectedWorksheet)">
+              <option ng-repeat="name in data_object.worksheetNames track by $index"
+                      ng-value="$index"
+                      ng-selected="$index == file.selectedWorksheet">
+                {{name}}
+              </option>
+            </select>
+          </div>
+
           <div class="card">
             <div class="card-header">
               <div class="float-right">
@@ -174,7 +194,12 @@
                   <i class="fa fa-exchange"></i> Toggle column format
                 </div>
               </div>
-              <h4>YNAB Data <small>(first 10 rows)</small></h4>
+              <h4>YNAB Data <small>(first 10 rows)</small>
+                <span ng-if="filename" class="badge badge-info ml-2">
+                  <i class="fa" ng-class="{'fa-file-excel-o': FileUtils.isExcelFile(filename), 'fa-file-text-o': !FileUtils.isExcelFile(filename)}"></i>
+                  {{FileUtils.getFileType(filename)}}
+                </span>
+              </h4>
               <div class="clearfix"></div>
             </div>
             <div class="table-container">
@@ -212,7 +237,7 @@
         <div class="container" ng-if="data_object.base_json">
           <div class="card">
             <div class="card-header">
-              <strong>Imported CSV</strong> <em>(first 10 rows)</em>
+              <strong>Imported {{FileUtils.getFileType(filename)}}</strong> <em>(first 10 rows)</em>
             </div>
             <div class="table-container table-responsive">
               <table class="table table-sm">
@@ -242,3 +267,4 @@
     </div>
   </body>
 </html>
+
