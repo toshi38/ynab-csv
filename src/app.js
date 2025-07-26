@@ -306,18 +306,10 @@ angular.element(document).ready(function () {
       $scope.inverted_outflow = !$scope.inverted_outflow;
     }
 
-    // Helper methods for file type detection and display
-    $scope.isExcelFile = function(filename) {
-      return FileUtils.isExcelFile(filename);
-    };
-
-    $scope.getFileType = function(filename) {
-      return FileUtils.getFileType(filename);
-    };
 
     // Handle worksheet selection for Excel files
     $scope.worksheetChosen = function(worksheetIndex) {
-      if ($scope.currentFilename && $scope.data.source && $scope.isExcelFile($scope.currentFilename)) {
+      if ($scope.currentFilename && $scope.data.source && FileUtils.isExcelFile($scope.currentFilename)) {
         try {
           // Convert to number if it's a string (from ng-value)
           var index = typeof worksheetIndex === 'string' ? parseInt(worksheetIndex, 10) : worksheetIndex;
@@ -356,3 +348,4 @@ angular.element(document).ready(function () {
   });
   angular.bootstrap(document, ["app"]);
 });
+

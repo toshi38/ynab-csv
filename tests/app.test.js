@@ -50,26 +50,26 @@ describe('ParseController', () => {
     // Clear all mocks
     jest.clearAllMocks();
     jest.resetModules();
-    
+
     // Create mock $scope
     $scope = {
       $watch: jest.fn(),
       $apply: jest.fn((fn) => fn && fn())
     };
-    
-    // Create mock $location  
+
+    // Create mock $location
     $location = {
       search: jest.fn(() => ({}))
     };
-    
+
     // Load the app.js file to register the controller
     require('../src/app.js');
-    
+
     // Get the controller function that was registered
     const controllerCalls = mockModule.controller.mock.calls;
     const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
     const controllerFn = parseControllerCall[1];
-    
+
     // Execute the controller
     controller = controllerFn($scope, $location);
   });
@@ -88,7 +88,7 @@ describe('ParseController', () => {
       // Initially only has default profile
       $scope.profiles = { 'default profile': {} };
       expect($scope.nonDefaultProfilesExist()).toBe(false);
-      
+
       // Add another profile
       $scope.profiles['custom-profile'] = {};
       expect($scope.nonDefaultProfilesExist()).toBe(true);
@@ -97,12 +97,12 @@ describe('ParseController', () => {
     test('should toggle between old and new column formats', () => {
       // Start with old format
       expect($scope.ynab_cols).toEqual(['Date', 'Payee', 'Memo', 'Outflow', 'Inflow']);
-      
+
       // Toggle to new format
       $scope.toggleColumnFormat();
       expect($scope.ynab_cols).toEqual(['Date', 'Payee', 'Memo', 'Amount']);
       expect($scope.profile.columnFormat).toEqual(['Date', 'Payee', 'Memo', 'Amount']);
-      
+
       // Toggle back to old format
       $scope.toggleColumnFormat();
       expect($scope.ynab_cols).toEqual(['Date', 'Payee', 'Memo', 'Outflow', 'Inflow']);
@@ -130,7 +130,7 @@ describe('ParseController', () => {
 
     test('should switch profiles and call URL search', () => {
       $scope.profileChosen('new-profile');
-      
+
       expect($location.search).toHaveBeenCalledWith('profile', 'new-profile');
       // Note: The function uses $scope.profileName instead of the parameter,
       // so it will use the existing profile, not the new one
@@ -139,10 +139,10 @@ describe('ParseController', () => {
 
     test('should invert flows when toggle is called', () => {
       expect($scope.inverted_outflow).toBe(false);
-      
+
       $scope.invert_flows();
       expect($scope.inverted_outflow).toBe(true);
-      
+
       $scope.invert_flows();
       expect($scope.inverted_outflow).toBe(false);
     });
@@ -150,7 +150,7 @@ describe('ParseController', () => {
     test('should reset app state when reloadApp is called', () => {
       $scope.setInitialScopeState = jest.fn();
       $scope.reloadApp();
-      
+
       expect($scope.setInitialScopeState).toHaveBeenCalled();
     });
   });
@@ -171,7 +171,7 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback) => {
         watchCallbacks[expr] = callback;
       });
-      
+
       // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
@@ -179,7 +179,7 @@ describe('ParseController', () => {
       const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
       const controllerFn = parseControllerCall[1];
       controllerFn($scope, $location);
-      
+
       // Simulate file data change with auto delimiter
       $scope.file.chosenDelimiter = 'auto';
       $scope.file.startAtRow = 1;
@@ -188,9 +188,9 @@ describe('ParseController', () => {
         data: 'Date,Payee,Amount\n2024-01-01,Store,-50.00',
         filename: 'test.csv'
       };
-      
+
       watchCallbacks['data.source'](csvData, null);
-      
+
       expect($scope.data_object.parseCsv).toHaveBeenCalledWith(
         csvData.data,
         $scope.file.chosenEncoding,
@@ -211,7 +211,7 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback) => {
         watchCallbacks[expr] = callback;
       });
-      
+
       // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
@@ -219,7 +219,7 @@ describe('ParseController', () => {
       const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
       const controllerFn = parseControllerCall[1];
       controllerFn($scope, $location);
-      
+
       // Simulate file data change with custom delimiter
       $scope.file.chosenDelimiter = ';';
       $scope.file.startAtRow = 2;
@@ -228,9 +228,9 @@ describe('ParseController', () => {
         data: 'Date;Payee;Amount\n2024-01-01;Store;-50.00',
         filename: 'test.csv'
       };
-      
+
       watchCallbacks['data.source'](csvData, null);
-      
+
       expect($scope.data_object.parseCsv).toHaveBeenCalledWith(
         csvData.data,
         $scope.file.chosenEncoding,
@@ -246,7 +246,7 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback) => {
         watchCallbacks[expr] = callback;
       });
-      
+
       // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
@@ -254,14 +254,14 @@ describe('ParseController', () => {
       const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
       const controllerFn = parseControllerCall[1];
       controllerFn($scope, $location);
-      
+
       // Set initial inverted_outflow to false
       $scope.inverted_outflow = false;
-      
+
       // Simulate inverted outflow change - the watch callback should update preview
       $scope.inverted_outflow = true;
       watchCallbacks['inverted_outflow'](true, false);
-      
+
       expect($scope.data_object.converted_json).toHaveBeenCalledWith(
         10,
         $scope.ynab_cols,
@@ -276,7 +276,7 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback, deep) => {
         watchCallbacks[expr] = callback;
       });
-      
+
       // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
@@ -284,11 +284,11 @@ describe('ParseController', () => {
       const parseControllerCall = controllerCalls.find(call => call[0] === 'ParseController');
       const controllerFn = parseControllerCall[1];
       controllerFn($scope, $location);
-      
+
       // Simulate column mapping change
       const newMapping = { Date: 'Transaction Date', Payee: 'Merchant' };
       watchCallbacks['ynab_map'](newMapping, {});
-      
+
       expect($scope.profile.chosenColumns).toEqual(newMapping);
       expect($scope.data_object.converted_json).toHaveBeenCalledWith(
         10,
@@ -300,9 +300,9 @@ describe('ParseController', () => {
 
     test('should generate CSV string for download', () => {
       $scope.data_object.converted_csv.mockReturnValue('Date,Payee,Amount\n2024-01-01,Store,-50.00');
-      
+
       const result = $scope.csvString();
-      
+
       expect($scope.data_object.converted_csv).toHaveBeenCalledWith(
         null,
         $scope.ynab_cols,
@@ -319,93 +319,43 @@ describe('ParseController', () => {
         download: '',
         click: jest.fn()
       };
-      
+
       // Mock Date constructor to return a specific date
       const mockDate = new Date('2024-01-01');
       mockDate.yyyymmdd = jest.fn(() => '20240101');
       jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
-      
+
       // Mock document.createElement to return our mock anchor
       global.document.createElement = jest.fn(() => mockAnchor);
       global.document.body.appendChild = jest.fn();
-      
+
       // Use realistic CSV data with special characters to test encoding
       const csvData = 'Date,Payee,Memo,Amount\n2024-01-01,"Store ""ABC""","Café & Groceries","-$50.00"';
       $scope.data_object.converted_csv.mockReturnValue(csvData);
-      
+
       $scope.downloadFile();
-      
+
       // Verify DOM interactions
       expect(global.document.createElement).toHaveBeenCalledWith('a');
       expect(mockAnchor.target).toBe('_blank');
       expect(mockAnchor.download).toBe('ynab_data_20240101.csv');
       expect(global.document.body.appendChild).toHaveBeenCalledWith(mockAnchor);
       expect(mockAnchor.click).toHaveBeenCalled();
-      
+
       // Verify the actual encoding pipeline: btoa(unescape(encodeURIComponent(csvData)))
       const expectedHref = 'data:attachment/csv;base64,' + btoa(unescape(encodeURIComponent(csvData)));
       expect(mockAnchor.href).toBe(expectedHref);
-      
+
       // Verify we can decode it back to the original CSV data
       const base64Part = mockAnchor.href.split('data:attachment/csv;base64,')[1];
       const decodedData = decodeURIComponent(escape(atob(base64Part)));
       expect(decodedData).toBe(csvData);
-      
+
       // Restore Date mock
       global.Date.mockRestore();
     });
   });
 
-  describe('Excel Helper Functions', () => {
-    test('isExcelFile should detect Excel files correctly', () => {
-      expect($scope.isExcelFile('test.xlsx')).toBe(true);
-      expect($scope.isExcelFile('test.xls')).toBe(true);
-      expect($scope.isExcelFile('test.xlsm')).toBe(true);
-      expect($scope.isExcelFile('test.xlsb')).toBe(true);
-      expect($scope.isExcelFile('TEST.XLSX')).toBe(true); // case insensitive
-      expect($scope.isExcelFile('document.xlsx')).toBe(true);
-    });
-
-    test('isExcelFile should reject non-Excel files', () => {
-      expect($scope.isExcelFile('test.csv')).toBe(false);
-      expect($scope.isExcelFile('test.txt')).toBe(false);
-      expect($scope.isExcelFile('test.pdf')).toBe(false);
-      expect($scope.isExcelFile('document.doc')).toBe(false);
-      expect($scope.isExcelFile('file.json')).toBe(false);
-    });
-
-    test('isExcelFile should handle edge cases', () => {
-      expect($scope.isExcelFile('')).toBe(false);
-      expect($scope.isExcelFile(null)).toBe(false);
-      expect($scope.isExcelFile(undefined)).toBe(false);
-      expect($scope.isExcelFile('file')).toBe(false); // no extension
-      expect($scope.isExcelFile('file.')).toBe(false); // empty extension
-      expect($scope.isExcelFile('.xlsx')).toBe(true); // hidden file
-    });
-
-    test('getFileType should return correct format strings for Excel files', () => {
-      expect($scope.getFileType('test.xlsx')).toBe('XLSX');
-      expect($scope.getFileType('test.xls')).toBe('XLS');
-      expect($scope.getFileType('test.xlsm')).toBe('XLSM');
-      expect($scope.getFileType('test.xlsb')).toBe('XLSB');
-      expect($scope.getFileType('TEST.XLSX')).toBe('XLSX'); // case insensitive
-    });
-
-    test('getFileType should return CSV for non-Excel files', () => {
-      expect($scope.getFileType('test.csv')).toBe('CSV');
-      expect($scope.getFileType('test.txt')).toBe('CSV');
-      expect($scope.getFileType('test.pdf')).toBe('CSV');
-      expect($scope.getFileType('document.doc')).toBe('CSV');
-    });
-
-    test('getFileType should handle edge cases', () => {
-      expect($scope.getFileType('')).toBe('');
-      expect($scope.getFileType(null)).toBe('');
-      expect($scope.getFileType(undefined)).toBe('');
-      expect($scope.getFileType('file')).toBe('CSV'); // no extension
-      expect($scope.getFileType('file.')).toBe('CSV'); // empty extension
-    });
-  });
 
   describe('Worksheet Selection', () => {
     beforeEach(() => {
@@ -466,7 +416,7 @@ describe('ParseController', () => {
       // Mock console.error and alert to avoid noise in tests
       global.console.error = jest.fn();
       global.alert = jest.fn();
-      
+
       // Make parseExcel throw an error
       $scope.data_object.parseExcel.mockImplementation(() => {
         throw new Error('Invalid worksheet');
@@ -479,7 +429,7 @@ describe('ParseController', () => {
 
       expect(global.console.error).toHaveBeenCalledWith('Error switching worksheet:', expect.any(Error));
       expect(global.alert).toHaveBeenCalledWith('Error switching worksheet: Invalid worksheet');
-      
+
       // Clean up mocks
       delete global.console.error;
       delete global.alert;
@@ -530,8 +480,8 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback) => {
         watchCallbacks[expr] = callback;
       });
-      
-      // Re-initialize to capture watch callbacks  
+
+      // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
       const controllerCalls = mockModule.controller.mock.calls;
@@ -544,15 +494,15 @@ describe('ParseController', () => {
       $scope.file.chosenDelimiter = 'auto';
       $scope.file.startAtRow = 2;
       $scope.profile.extraRow = true;
-      
+
       const excelData = {
         data: 'excel_binary_data',
         filename: 'test.xlsx'
       };
-      
+
       // Simulate Excel file data change
       watchCallbacks['data.source'](excelData, null);
-      
+
       expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
         excelData.data,
         'test.xlsx',
@@ -562,7 +512,7 @@ describe('ParseController', () => {
         null, // auto delimiter becomes null
         0 // default worksheet index
       );
-      
+
       expect($scope.data_object.converted_json).toHaveBeenCalledWith(
         10,
         $scope.ynab_cols,
@@ -580,7 +530,7 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback) => {
         watchCallbacks[expr] = callback;
       });
-      
+
       // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
@@ -592,14 +542,14 @@ describe('ParseController', () => {
       // Set up Excel file scenario with custom delimiter
       $scope.data_object.isExcelFile.mockReturnValue(true);
       $scope.file.chosenDelimiter = ';';
-      
+
       const excelData = {
         data: 'excel_binary_data',
         filename: 'test.xlsx'
       };
-      
+
       watchCallbacks['data.source'](excelData, null);
-      
+
       expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
         excelData.data,
         'test.xlsx',
@@ -617,7 +567,7 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback) => {
         watchCallbacks[expr] = callback;
       });
-      
+
       // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
@@ -629,21 +579,21 @@ describe('ParseController', () => {
       // Set up CSV file scenario
       $scope.data_object.isExcelFile.mockReturnValue(false);
       $scope.file.chosenDelimiter = 'auto';
-      
+
       const csvData = {
         data: 'Date,Payee,Amount\n2024-01-01,Store,-50.00',
         filename: 'test.csv'
       };
-      
+
       watchCallbacks['data.source'](csvData, null);
-      
+
       expect($scope.data_object.parseCsv).toHaveBeenCalledWith(
         csvData.data,
         $scope.file.chosenEncoding,
         $scope.file.startAtRow,
         $scope.profile.extraRow
       );
-      
+
       expect($scope.data_object.parseExcel).not.toHaveBeenCalled();
     });
 
@@ -657,7 +607,7 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback) => {
         watchCallbacks[expr] = callback;
       });
-      
+
       // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
@@ -668,25 +618,25 @@ describe('ParseController', () => {
 
       // Set up Excel file scenario
       $scope.data_object.isExcelFile.mockReturnValue(true);
-      
+
       // Make parseExcel throw an error
       $scope.data_object.parseExcel.mockImplementation(() => {
         throw new Error('Corrupted Excel file');
       });
-      
+
       const excelData = {
         data: 'corrupted_excel_data',
         filename: 'test.xlsx'
       };
-      
+
       // This should not crash the watcher
       expect(() => {
         watchCallbacks['data.source'](excelData, null);
       }).not.toThrow();
-      
+
       expect(global.console.error).toHaveBeenCalledWith('Error parsing file:', expect.any(Error));
       expect(global.alert).toHaveBeenCalledWith('Error parsing file: Corrupted Excel file');
-      
+
       // Clean up mocks
       delete global.console.error;
       delete global.alert;
@@ -698,7 +648,7 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback) => {
         watchCallbacks[expr] = callback;
       });
-      
+
       // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
@@ -711,7 +661,7 @@ describe('ParseController', () => {
       watchCallbacks['data.source']('', null);
       watchCallbacks['data.source'](null, null);
       watchCallbacks['data.source'](undefined, null);
-      
+
       expect($scope.data_object.parseExcel).not.toHaveBeenCalled();
       expect($scope.data_object.parseCsv).not.toHaveBeenCalled();
     });
@@ -722,7 +672,7 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback) => {
         watchCallbacks[expr] = callback;
       });
-      
+
       // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
@@ -735,11 +685,11 @@ describe('ParseController', () => {
       $scope.filename = 'test.xlsx';
       $scope.data_object.isExcelFile.mockReturnValue(true);
       $scope.data_object.worksheetNames = ['Sheet1', 'Data', 'Summary'];
-      
+
       const excelData = 'excel_binary_data';
-      
+
       watchCallbacks['data.source'](excelData, null);
-      
+
       // Should initialize selectedWorksheet to 0 for multi-sheet Excel files
       expect($scope.file.selectedWorksheet).toBe(0);
     });
@@ -750,7 +700,7 @@ describe('ParseController', () => {
       $scope.$watch.mockImplementation((expr, callback) => {
         watchCallbacks[expr] = callback;
       });
-      
+
       // Re-initialize to capture watch callbacks
       jest.resetModules();
       require('../src/app.js');
@@ -761,16 +711,17 @@ describe('ParseController', () => {
 
       // Set up CSV file scenario
       $scope.data_object.isExcelFile.mockReturnValue(false);
-      
+
       const csvData = {
         data: 'Date,Payee,Amount\n2024-01-01,Store,-50.00',
         filename: 'test.csv'
       };
-      
+
       watchCallbacks['data.source'](csvData, null);
-      
+
       // Should not set selectedWorksheet for CSV files (it starts as 0 from setInitialScopeState)
       expect($scope.file.selectedWorksheet).toBe(0);
     });
   });
 });
+
