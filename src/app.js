@@ -236,6 +236,10 @@ angular.element(document).ready(function () {
       };
 
       $scope.setInitialScopeState();
+
+      // Make FileUtils available in templates
+      $scope.FileUtils = FileUtils;
+
       $scope.profileChosen = function (profileName) {
         $location.search("profile", profileName);
         $scope.profile = $scope.profiles[$scope.profileName];
@@ -277,6 +281,7 @@ angular.element(document).ready(function () {
           try {
             // Store filename for later use in worksheet switching
             $scope.currentFilename = newValue.filename;
+            $scope.filename = newValue.filename;
 
             // Process file based on type
             if ($scope.data_object.isExcelFile(newValue.filename)) {

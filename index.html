@@ -68,10 +68,18 @@
     <div id="header_nav" class="show_on_load">
       <div class="container">
         <div class="float-right" ng-if="data_object.base_json">
-          <div class="btn btn-info" ng-click="reloadApp()">
+          <div
+            class="btn btn-info"
+            ng-click="reloadApp()"
+            data-testid="reload-button"
+          >
             <i class="fa fa-refresh"></i> Load a different file
           </div>
-          <div class="btn btn-success" ng-click="downloadFile()">
+          <div
+            class="btn btn-success"
+            ng-click="downloadFile()"
+            data-testid="download-button"
+          >
             <i class="fa fa-cloud-download"></i> Save YNAB Data
           </div>
         </div>
@@ -91,10 +99,15 @@
       filename="filename"
       encoding="{{file.chosenEncoding}}"
       delimiter="{{file.chosenDelimiter}}"
+      data-testid="dropzone"
     >
       <div class="container mx-auto show_on_load" style="width: 600px">
         <br />
-        <div id="upload_wrapper" ng-if="!data_object.base_json">
+        <div
+          id="upload_wrapper"
+          ng-if="!data_object.base_json"
+          data-testid="upload-wrapper"
+        >
           <div id="drop_text">Drop CSV or Excel file</div>
           <form>
             <div class="fileUpload btn btn-info">
@@ -107,6 +120,7 @@
                 filename="filename"
                 encoding="{{file.chosenEncoding}}"
                 delimiter="{{file.chosenDelimiter}}"
+                data-testid="file-input"
               />
             </div>
             <div class="btn-group">
@@ -116,6 +130,7 @@
                 data-toggle="dropdown"
                 aria-haspopup="true"
                 aria-expanded="false"
+                data-testid="config-dropdown"
               >
                 Input file config
               </button>
@@ -130,6 +145,7 @@
                       ng-click="$event.stopPropagation()"
                       ng-change="encodingChosen(file.chosenEncoding)"
                       class="form-control"
+                      data-testid="encoding-select"
                     ></select>
                   </div>
                   <div class="form-group">
@@ -141,6 +157,7 @@
                       ng-click="$event.stopPropagation()"
                       ng-change="delimiterChosen(file.chosenDelimiter)"
                       class="form-control"
+                      data-testid="delimiter-select"
                     ></select>
                   </div>
                   <div class="form-group">
@@ -152,6 +169,7 @@
                       ng-model="file.startAtRow"
                       ng-change="startRowSet(file.startAtRow)"
                       class="form-control"
+                      data-testid="start-row-input"
                     />
                   </div>
                   <div class="form-check" style="margin-bottom: 12px">
@@ -162,6 +180,7 @@
                       ng-change="extraRowSet(file.extraRow)"
                       class="form-check-input"
                       value=""
+                      data-testid="extra-row-checkbox"
                     />
                     <label for="extra_row" class="form-check-label"
                       >Fill header row from first line</label
@@ -176,6 +195,7 @@
                       class="form-control"
                       ng-click="$event.stopPropagation()"
                       ng-change="profileChosen(profileName)"
+                      data-testid="profile-select"
                     >
                       <option
                         ng-repeat="(name,profile) in profiles"
@@ -191,7 +211,12 @@
           </form>
         </div>
 
-        <div class="container" id="tool_wrapper" ng-if="data_object.base_json">
+        <div
+          class="container"
+          id="tool_wrapper"
+          ng-if="data_object.base_json"
+          data-testid="tool-wrapper"
+        >
           <!-- Excel worksheet selector for multi-sheet files -->
           <div
             class="form-group mb-3"
@@ -203,6 +228,7 @@
               ng-model="file.selectedWorksheet"
               class="form-control"
               ng-change="worksheetChosen(file.selectedWorksheet)"
+              data-testid="worksheet-select"
             >
               <option
                 ng-repeat="name in data_object.worksheetNames track by $index"
@@ -221,19 +247,25 @@
                   ng-show="ynab_cols.indexOf('Inflow') != -1 && ynab_map['Inflow'] == ynab_map['Outflow']"
                   class="btn btn-outline-secondary"
                   ng-click="invert_flows()"
+                  data-testid="invert-flows-button"
                 >
                   <i class="fa fa-exchange"></i> Invert flows
                 </div>
                 <div
                   class="btn btn-outline-secondary"
                   ng-click="toggleColumnFormat()"
+                  data-testid="toggle-format-button"
                 >
                   <i class="fa fa-exchange"></i> Toggle column format
                 </div>
               </div>
               <h4>
                 YNAB Data <small>(first 10 rows)</small>
-                <span ng-if="filename" class="badge badge-info ml-2">
+                <span
+                  ng-if="filename"
+                  class="badge badge-info ml-2"
+                  data-testid="file-type-badge"
+                >
                   <i
                     class="fa"
                     ng-class="{'fa-file-excel-o': FileUtils.isExcelFile(filename), 'fa-file-text-o': !FileUtils.isExcelFile(filename)}"
@@ -244,13 +276,17 @@
               <div class="clearfix"></div>
             </div>
             <div class="table-container">
-              <table class="table table-sm table-striped">
+              <table
+                class="table table-sm table-striped"
+                data-testid="data-preview-table"
+              >
                 <thead>
                   <tr>
                     <th
                       scope="col"
                       class="form-group"
                       ng-repeat="col in ynab_cols"
+                      data-testid="column-header-{{col}}"
                     >
                       <label for="id-{{col}}">{{col}}</label>
                       <select
@@ -258,6 +294,7 @@
                         id="id-{{col}}"
                         ng-model="ynab_map[col]"
                         ng-options="f for f in data_object.fields()"
+                        data-testid="column-select-{{col}}"
                       >
                         <option value="">Choose option</option>
                       </select>
@@ -265,8 +302,16 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr ng-repeat="row in preview">
-                    <td ng-repeat="col in ynab_cols">{{row[col]}}</td>
+                  <tr
+                    ng-repeat="row in preview"
+                    data-testid="preview-row-{{$index}}"
+                  >
+                    <td
+                      ng-repeat="col in ynab_cols"
+                      data-testid="preview-cell-{{$parent.$index}}-{{$index}}"
+                    >
+                      {{row[col]}}
+                    </td>
                   </tr>
                 </tbody>
               </table>

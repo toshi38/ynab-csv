@@ -7,3 +7,5 @@ build
 tmp
 *.min.js
 *.min.css
+playwright-report
+test-results
