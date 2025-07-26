@@ -29,6 +29,7 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.6.7/angular.js"></script>
 
+    <script src="src/file_utils.js"></script>
     <script src="src/data_object.js"></script>
     <script src="src/app.js"></script>
     <script src='https://js.sentry-cdn.com/9984f4ed07f54d7ca6107525f0d990a1.min.js' crossorigin="anonymous"></script>
@@ -38,7 +39,7 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-    
+
       gtag('config', 'G-ZNWHWW4QYB');
     </script>
   </head>
@@ -126,7 +127,7 @@
                       class="form-control"
                     >
                     </select>
-                  </div>   
+                  </div>
                   <div class="form-check" style="margin-bottom: 12px;">
                     <input
                         id="extra_row"
@@ -137,7 +138,7 @@
                         value=""
                     >
                     <label for="extra_row" class="form-check-label">Fill header row from first line</label>
-                  </div>           
+                  </div>
                   <div class="form-group" ng-if="nonDefaultProfilesExist()">
                     <label for="profile">Bank profile</label>
                     <select
@@ -193,7 +194,7 @@
                   <i class="fa fa-exchange"></i> Toggle column format
                 </div>
               </div>
-              <h4>YNAB Data <small>(first 10 rows)</small> 
+              <h4>YNAB Data <small>(first 10 rows)</small>
                 <span ng-if="filename" class="badge badge-info ml-2">
                   <i class="fa" ng-class="{'fa-file-excel-o': isExcelFile(filename), 'fa-file-text-o': !isExcelFile(filename)}"></i>
                   {{getFileType(filename)}}

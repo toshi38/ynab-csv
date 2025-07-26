@@ -52,18 +52,12 @@ angular.element(document).ready(function () {
     };
   }
 
-  function getExcelReadingMethod(filename) {
-    var extension = filename.toLowerCase().split('.').pop();
-    return ['xls', 'xlsb'].includes(extension) ? 'arrayBuffer' : 'binaryString';
-  }
-
   function isExcelFileHelper(filename) {
     if (!filename) return false;
     if (window.DataObject) {
       return new window.DataObject().isExcelFile(filename);
     }
-    var extension = filename.toLowerCase().split('.').pop();
-    return ['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension);
+    return FileUtils.isExcelFile(filename);
   }
 
   function processFile(file, scope, targetProperty, attributes) {
@@ -81,7 +75,7 @@ angular.element(document).ready(function () {
       console.error('FileReader error:', error);
     };
     if (isExcelFileHelper(file.name)) {
-      var method = getExcelReadingMethod(file.name);
+      var method = FileUtils.getExcelReadingMethod(file.name);
       if (method === 'arrayBuffer') {
         reader.readAsArrayBuffer(file);
       } else {
@@ -149,10 +143,10 @@ angular.element(document).ready(function () {
             element.removeClass("dragging");
             event.preventDefault();
             event.stopPropagation();
-            
+
             var file = (event.dataTransfer || event.originalEvent.dataTransfer).files[0];
             if (!file) return;
-            
+
             processFile(file, scope, 'dropzone', attributes);
           });
           element.bind("paste", function (event) {
@@ -247,7 +241,7 @@ angular.element(document).ready(function () {
       $scope.profile.columnFormat = $scope.ynab_cols
       localStorage.setItem('profiles', JSON.stringify($scope.profiles));
     };
-    
+
     $scope.$watch("data.source", function (newValue, oldValue) {
       if (newValue && newValue.data && newValue.filename) {
         try {
@@ -280,7 +274,7 @@ angular.element(document).ready(function () {
               $scope.data_object.parseCsv(newValue.data, $scope.file.chosenEncoding, $scope.file.startAtRow, $scope.profile.extraRow, $scope.file.chosenDelimiter);
             }
           }
-          
+
           $scope.preview = $scope.data_object.converted_json(10, $scope.ynab_cols, $scope.ynab_map, $scope.inverted_outflow);
         } catch (error) {
           console.error('Error parsing file:', error);
@@ -311,21 +305,14 @@ angular.element(document).ready(function () {
     $scope.invert_flows = function () {
       $scope.inverted_outflow = !$scope.inverted_outflow;
     }
-    
+
     // Helper methods for file type detection and display
     $scope.isExcelFile = function(filename) {
-      if (!filename) return false;
-      var extension = filename.toLowerCase().split('.').pop();
-      return ['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension);
+      return FileUtils.isExcelFile(filename);
     };
-    
+
     $scope.getFileType = function(filename) {
-      if (!filename) return '';
-      var extension = filename.toLowerCase().split('.').pop();
-      if (['xlsx', 'xls', 'xlsm', 'xlsb'].includes(extension)) {
-        return extension.toUpperCase();
-      }
-      return 'CSV';
+      return FileUtils.getFileType(filename);
     };
 
     // Handle worksheet selection for Excel files
