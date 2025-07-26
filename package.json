@@ -8,7 +8,11 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "start": "http-server --port 3000 -o",
-    "bs": "browser-sync . -w"
+    "bs": "browser-sync . -w",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky",
+    "postinstall": "husky"
   },
   "repository": {
     "type": "git",
@@ -31,8 +35,14 @@
     "@babel/preset-env": "^7.28.0",
     "babel-jest": "^30.0.5",
     "browser-sync": "^3.0.2",
+    "husky": "^9.1.7",
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
-    "jsdom": "^26.1.0"
+    "jsdom": "^26.1.0",
+    "lint-staged": "^16.1.2",
+    "prettier": "^3.6.2"
+  },
+  "lint-staged": {
+    "*.{js,json,md,html,css,yml,yaml}": "prettier --write"
   }
 }
