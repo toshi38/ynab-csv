@@ -184,12 +184,15 @@ describe('ParseController', () => {
       $scope.file.chosenDelimiter = 'auto';
       $scope.file.startAtRow = 1;
       $scope.profile.extraRow = false;
-      const csvData = 'Date,Payee,Amount\n2024-01-01,Store,-50.00';
+      const csvData = {
+        data: 'Date,Payee,Amount\n2024-01-01,Store,-50.00',
+        filename: 'test.csv'
+      };
       
       watchCallbacks['data.source'](csvData, null);
       
       expect($scope.data_object.parseCsv).toHaveBeenCalledWith(
-        csvData,
+        csvData.data,
         $scope.file.chosenEncoding,
         $scope.file.startAtRow,
         $scope.profile.extraRow
@@ -221,12 +224,15 @@ describe('ParseController', () => {
       $scope.file.chosenDelimiter = ';';
       $scope.file.startAtRow = 2;
       $scope.profile.extraRow = true;
-      const csvData = 'Date;Payee;Amount\n2024-01-01;Store;-50.00';
+      const csvData = {
+        data: 'Date;Payee;Amount\n2024-01-01;Store;-50.00',
+        filename: 'test.csv'
+      };
       
       watchCallbacks['data.source'](csvData, null);
       
       expect($scope.data_object.parseCsv).toHaveBeenCalledWith(
-        csvData,
+        csvData.data,
         $scope.file.chosenEncoding,
         $scope.file.startAtRow,
         $scope.profile.extraRow,
@@ -404,12 +410,19 @@ describe('ParseController', () => {
   describe('Worksheet Selection', () => {
     beforeEach(() => {
       // Set up Excel file scenario
-      $scope.filename = 'test.xlsx';
-      $scope.data = { source: 'excel_binary_data' };
+      $scope.currentFilename = 'test.xlsx';
+      $scope.data = {
+        source: {
+          data: 'excel_binary_data',
+          filename: 'test.xlsx'
+        }
+      };
       $scope.data_object.parseExcel = jest.fn();
       $scope.data_object.converted_json = jest.fn(() => [
         { Date: '2024-01-01', Payee: 'Excel Store', Amount: '-75.00' }
       ]);
+      $scope.$evalAsync = jest.fn();
+      global.alert = jest.fn();
     });
 
     test('worksheetChosen should re-parse Excel with new worksheet index', () => {
@@ -473,7 +486,7 @@ describe('ParseController', () => {
     });
 
     test('worksheetChosen should do nothing if filename is not set', () => {
-      $scope.filename = null;
+      $scope.currentFilename = null;
 
       $scope.worksheetChosen(1);
 
@@ -491,7 +504,7 @@ describe('ParseController', () => {
     });
 
     test('worksheetChosen should do nothing for non-Excel files', () => {
-      $scope.filename = 'test.csv';
+      $scope.currentFilename = 'test.csv';
 
       $scope.worksheetChosen(1);
 
@@ -527,19 +540,21 @@ describe('ParseController', () => {
       controllerFn($scope, $location);
 
       // Set up Excel file scenario
-      $scope.filename = 'test.xlsx';
       $scope.data_object.isExcelFile.mockReturnValue(true);
       $scope.file.chosenDelimiter = 'auto';
       $scope.file.startAtRow = 2;
       $scope.profile.extraRow = true;
       
-      const excelData = 'excel_binary_data';
+      const excelData = {
+        data: 'excel_binary_data',
+        filename: 'test.xlsx'
+      };
       
       // Simulate Excel file data change
       watchCallbacks['data.source'](excelData, null);
       
       expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
-        excelData,
+        excelData.data,
         'test.xlsx',
         $scope.file.chosenEncoding,
         $scope.file.startAtRow,
@@ -575,16 +590,18 @@ describe('ParseController', () => {
       controllerFn($scope, $location);
 
       // Set up Excel file scenario with custom delimiter
-      $scope.filename = 'test.xlsx';
       $scope.data_object.isExcelFile.mockReturnValue(true);
       $scope.file.chosenDelimiter = ';';
       
-      const excelData = 'excel_binary_data';
+      const excelData = {
+        data: 'excel_binary_data',
+        filename: 'test.xlsx'
+      };
       
       watchCallbacks['data.source'](excelData, null);
       
       expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
-        excelData,
+        excelData.data,
         'test.xlsx',
         $scope.file.chosenEncoding,
         $scope.file.startAtRow,
@@ -610,16 +627,18 @@ describe('ParseController', () => {
       controllerFn($scope, $location);
 
       // Set up CSV file scenario
-      $scope.filename = 'test.csv';
       $scope.data_object.isExcelFile.mockReturnValue(false);
       $scope.file.chosenDelimiter = 'auto';
       
-      const csvData = 'Date,Payee,Amount\n2024-01-01,Store,-50.00';
+      const csvData = {
+        data: 'Date,Payee,Amount\n2024-01-01,Store,-50.00',
+        filename: 'test.csv'
+      };
       
       watchCallbacks['data.source'](csvData, null);
       
       expect($scope.data_object.parseCsv).toHaveBeenCalledWith(
-        csvData,
+        csvData.data,
         $scope.file.chosenEncoding,
         $scope.file.startAtRow,
         $scope.profile.extraRow
@@ -648,7 +667,6 @@ describe('ParseController', () => {
       controllerFn($scope, $location);
 
       // Set up Excel file scenario
-      $scope.filename = 'test.xlsx';
       $scope.data_object.isExcelFile.mockReturnValue(true);
       
       // Make parseExcel throw an error
@@ -656,7 +674,10 @@ describe('ParseController', () => {
         throw new Error('Corrupted Excel file');
       });
       
-      const excelData = 'corrupted_excel_data';
+      const excelData = {
+        data: 'corrupted_excel_data',
+        filename: 'test.xlsx'
+      };
       
       // This should not crash the watcher
       expect(() => {
@@ -739,15 +760,17 @@ describe('ParseController', () => {
       controllerFn($scope, $location);
 
       // Set up CSV file scenario
-      $scope.filename = 'test.csv';
       $scope.data_object.isExcelFile.mockReturnValue(false);
       
-      const csvData = 'Date,Payee,Amount\n2024-01-01,Store,-50.00';
+      const csvData = {
+        data: 'Date,Payee,Amount\n2024-01-01,Store,-50.00',
+        filename: 'test.csv'
+      };
       
       watchCallbacks['data.source'](csvData, null);
       
-      // Should not set selectedWorksheet for CSV files
-      expect($scope.file.selectedWorksheet).toBeUndefined();
+      // Should not set selectedWorksheet for CSV files (it starts as 0 from setInitialScopeState)
+      expect($scope.file.selectedWorksheet).toBe(0);
     });
   });
 });

@@ -127,8 +127,7 @@ describe('AngularJS Directives', () => {
       // For CSV files, the data is wrapped in an object with filename
       expect(mockScope.fileread).toEqual({
         data: 'csv,data\ntest,value',
-        filename: 'test.csv',
-        isString: true
+        filename: 'test.csv'
       });
     });
   });
