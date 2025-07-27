@@ -131,75 +131,17 @@
               </button>
               <div class="dropdown-menu">
                 <div class="dropdown-form p-2">
-                  <div class="form-group input-group-sm">
-                    <label for="encoding">Character encoding</label>
-                    <select
-                      id="encoding"
-                      ng-model="file.chosenEncoding"
-                      ng-options="enc for enc in file.encodings track by enc"
-                      ng-click="$event.stopPropagation()"
-                      ng-change="encodingChosen(file.chosenEncoding)"
-                      class="form-control"
-                      data-testid="encoding-select"
-                    ></select>
-                  </div>
-                  <div class="form-group">
-                    <label for="delimiter">Cell delimiter</label>
-                    <select
-                      id="delimiter"
-                      ng-model="file.chosenDelimiter"
-                      ng-options="enc for enc in file.delimiters track by enc"
-                      ng-click="$event.stopPropagation()"
-                      ng-change="delimiterChosen(file.chosenDelimiter)"
-                      class="form-control"
-                      data-testid="delimiter-select"
-                    ></select>
-                  </div>
-                  <div class="form-group">
-                    <label for="start_row">Start at row</label>
-                    <input
-                      id="start_row"
-                      type="number"
-                      min="1"
-                      ng-model="file.startAtRow"
-                      ng-change="startRowSet(file.startAtRow)"
-                      class="form-control"
-                      data-testid="start-row-input"
-                    />
-                  </div>
-                  <div class="form-check" style="margin-bottom: 12px">
-                    <input
-                      id="extra_row"
-                      type="checkbox"
-                      ng-model="file.extraRow"
-                      ng-change="extraRowSet(file.extraRow)"
-                      class="form-check-input"
-                      value=""
-                      data-testid="extra-row-checkbox"
-                    />
-                    <label for="extra_row" class="form-check-label"
-                      >Fill header row from first line</label
-                    >
-                  </div>
-                  <div class="form-group" ng-if="nonDefaultProfilesExist()">
-                    <label for="profile">Bank profile</label>
-                    <select
-                      id="profile"
-                      name="ngvalueselect"
-                      ng-model="profileName"
-                      class="form-control"
-                      ng-click="$event.stopPropagation()"
-                      ng-change="profileChosen(profileName)"
-                      data-testid="profile-select"
-                    >
-                      <option
-                        ng-repeat="(name,profile) in profiles"
-                        ng-value="name"
-                      >
-                        {{name}}
-                      </option>
-                    </select>
-                  </div>
+                  <file-parsing-settings
+                    file="file"
+                    profiles="profiles"
+                    profile-name="profileName"
+                    on-encoding-change="encodingChosen(encoding)"
+                    on-delimiter-change="delimiterChosen(delimiter)"
+                    on-start-row-change="startRowSet(row)"
+                    on-extra-row-change="extraRowSet(extraRow)"
+                    on-profile-change="profileChosen(profileName)"
+                    show-profiles="nonDefaultProfilesExist()"
+                  ></file-parsing-settings>
                 </div>
               </div>
             </div>
@@ -212,6 +154,39 @@
           ng-if="data_object.base_json"
           data-testid="tool-wrapper"
         >
+          <!-- Settings section -->
+          <div class="settings-section mb-3">
+            <button
+              class="btn btn-outline-secondary btn-sm"
+              type="button"
+              ng-click="showSettings = !showSettings"
+              data-testid="settings-toggle"
+            >
+              <i
+                class="fa"
+                ng-class="{'fa-chevron-down': !showSettings, 'fa-chevron-up': showSettings}"
+              ></i>
+              File parsing settings
+            </button>
+            <div class="settings-content mt-2" ng-show="showSettings">
+              <div class="card">
+                <div class="card-body">
+                  <file-parsing-settings
+                    file="file"
+                    profiles="profiles"
+                    profile-name="profileName"
+                    on-encoding-change="reparseFile()"
+                    on-delimiter-change="reparseFile()"
+                    on-start-row-change="reparseFile()"
+                    on-extra-row-change="reparseFile()"
+                    on-profile-change="profileChosen(profileName)"
+                    show-profiles="nonDefaultProfilesExist()"
+                  ></file-parsing-settings>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Excel worksheet selector for multi-sheet files -->
           <div
             class="form-group mb-3"

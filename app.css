@@ -93,3 +93,28 @@ body.angular_loaded #angular_is_loading {
 .dropdown-form {
   width: 200px;
 }
+
+/* Settings section */
+.settings-section {
+  margin-top: 10px;
+}
+
+.settings-content {
+  transition: all 0.3s ease;
+}
+
+.file-parsing-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.file-parsing-settings .form-group {
+  flex: 1;
+  min-width: 200px;
+  margin-bottom: 0;
+}
+
+.file-parsing-settings .form-check {
+  flex: 1 1 100%;
+}
