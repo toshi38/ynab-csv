@@ -55,12 +55,34 @@ body.angular_loaded #angular_is_loading {
 .dropzone {
   padding-top: 54px;
 }
+
+/* Responsive padding for fluid containers */
+.container-fluid {
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+@media (min-width: 768px) {
+  .container-fluid {
+    padding-left: 30px;
+    padding-right: 30px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .container-fluid {
+    padding-left: 50px;
+    padding-right: 50px;
+  }
+}
 .dropzone.dragging {
   background-color: #d2e4f8;
 }
 
 #upload_wrapper {
   text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
 }
 #upload_wrapper #drop_text {
   font-size: 60px;
@@ -92,6 +114,21 @@ body.angular_loaded #angular_is_loading {
 
 .dropdown-form {
   width: 200px;
+}
+
+/* When file-parsing-settings is inside a dropdown */
+.dropdown-form .file-parsing-settings {
+  display: block;
+}
+
+.dropdown-form .file-parsing-settings .form-group {
+  flex: none;
+  min-width: auto;
+  margin-bottom: 0.5rem;
+}
+
+.dropdown-form .file-parsing-settings .form-control {
+  width: 100%;
 }
 
 /* Settings section */

@@ -141,6 +141,9 @@ angular.element(document).ready(function () {
           onExtraRowChange: "&",
           onProfileChange: "&",
           showProfiles: "=",
+          worksheetNames: "=",
+          selectedWorksheet: "=",
+          onWorksheetChange: "&",
         },
         template:
           '<div class="file-parsing-settings">' +
@@ -164,6 +167,20 @@ angular.element(document).ready(function () {
           '            ng-click="$event.stopPropagation()" ' +
           '            class="form-control" ' +
           '            data-testid="delimiter-select">' +
+          "    </select>" +
+          "  </div>" +
+          '  <div class="form-group" ng-if="worksheetNames && worksheetNames.length > 1">' +
+          '    <label for="{{::uniqueId}}-worksheet">Excel worksheet</label>' +
+          '    <select id="{{::uniqueId}}-worksheet" ' +
+          '            ng-model="selectedWorksheet" ' +
+          '            ng-change="onWorksheetChange({worksheet: selectedWorksheet})" ' +
+          '            class="form-control" ' +
+          '            data-testid="worksheet-select">' +
+          '      <option ng-repeat="name in worksheetNames track by $index" ' +
+          '              ng-value="$index" ' +
+          '              ng-selected="$index == selectedWorksheet">' +
+          "        {{name}}" +
+          "      </option>" +
           "    </select>" +
           "  </div>" +
           '  <div class="form-group">' +

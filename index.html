@@ -61,7 +61,7 @@
     ng-class="{angular_loaded: angular_loaded}"
   >
     <div id="header_nav" class="show_on_load">
-      <div class="container">
+      <div class="container-fluid">
         <div class="float-right" ng-if="data_object.base_json">
           <div
             class="btn btn-info"
@@ -96,7 +96,7 @@
       delimiter="{{file.chosenDelimiter}}"
       data-testid="dropzone"
     >
-      <div class="container mx-auto show_on_load" style="width: 600px">
+      <div class="container-fluid show_on_load">
         <br />
         <div
           id="upload_wrapper"
@@ -149,7 +149,7 @@
         </div>
 
         <div
-          class="container"
+          class="container-fluid"
           id="tool_wrapper"
           ng-if="data_object.base_json"
           data-testid="tool-wrapper"
@@ -181,33 +181,13 @@
                     on-extra-row-change="reparseFile()"
                     on-profile-change="profileChosen(profileName)"
                     show-profiles="nonDefaultProfilesExist()"
+                    worksheet-names="data_object.worksheetNames"
+                    selected-worksheet="file.selectedWorksheet"
+                    on-worksheet-change="worksheetChosen(worksheet)"
                   ></file-parsing-settings>
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Excel worksheet selector for multi-sheet files -->
-          <div
-            class="form-group mb-3"
-            ng-if="data_object.worksheetNames && data_object.worksheetNames.length > 1"
-          >
-            <label for="worksheet">Excel worksheet:</label>
-            <select
-              id="worksheet"
-              ng-model="file.selectedWorksheet"
-              class="form-control"
-              ng-change="worksheetChosen(file.selectedWorksheet)"
-              data-testid="worksheet-select"
-            >
-              <option
-                ng-repeat="name in data_object.worksheetNames track by $index"
-                ng-value="$index"
-                ng-selected="$index == file.selectedWorksheet"
-              >
-                {{name}}
-              </option>
-            </select>
           </div>
 
           <div class="card">
@@ -288,7 +268,7 @@
             </div>
           </div>
         </div>
-        <div class="container" ng-if="data_object.base_json">
+        <div class="container-fluid" ng-if="data_object.base_json">
           <div class="card">
             <div class="card-header">
               <strong>Imported {{FileUtils.getFileType(filename)}}</strong>
