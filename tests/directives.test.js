@@ -365,5 +365,176 @@ describe("AngularJS Directives", () => {
     });
   });
 
+  describe("fileParsingSettings directive", () => {
+    let directiveFactory;
+    let mockScope;
+    let mockElement;
+    let mockAttributes;
+
+    beforeEach(() => {
+      // Get the fileParsingSettings directive factory
+      const directiveCalls = mockModule.directive.mock.calls;
+      const fileParsingSettingsCall = directiveCalls.find(
+        (call) => call[0] === "fileParsingSettings",
+      );
+      // The directive is defined as an array with the function as the last element
+      directiveFactory = fileParsingSettingsCall[1][0];
+
+      mockScope = {
+        file: {
+          encodings: ["UTF-8", "ISO-8859-1"],
+          delimiters: ["auto", ",", ";"],
+          chosenEncoding: "UTF-8",
+          chosenDelimiter: "auto",
+          startAtRow: 1,
+          extraRow: false,
+        },
+        profiles: { "default profile": {} },
+        profileName: "default profile",
+        onEncodingChange: jest.fn(),
+        onDelimiterChange: jest.fn(),
+        onStartRowChange: jest.fn(),
+        onExtraRowChange: jest.fn(),
+        onProfileChange: jest.fn(),
+        showProfiles: false,
+        worksheetNames: null,
+        selectedWorksheet: 0,
+        onWorksheetChange: jest.fn(),
+      };
+
+      mockElement = {};
+      mockAttributes = {};
+    });
+
+    test("should register fileParsingSettings directive", () => {
+      expect(directiveFactory).toBeDefined();
+      expect(typeof directiveFactory).toBe("function");
+    });
+
+    test("should configure directive correctly", () => {
+      const directiveConfig = directiveFactory();
+
+      expect(directiveConfig.restrict).toBe("E");
+      expect(directiveConfig.scope).toEqual({
+        file: "=",
+        profiles: "=",
+        profileName: "=",
+        onEncodingChange: "&",
+        onDelimiterChange: "&",
+        onStartRowChange: "&",
+        onExtraRowChange: "&",
+        onProfileChange: "&",
+        showProfiles: "=",
+        worksheetNames: "=",
+        selectedWorksheet: "=",
+        onWorksheetChange: "&",
+      });
+      expect(typeof directiveConfig.template).toBe("string");
+      expect(directiveConfig.template).toContain("file-parsing-settings");
+    });
+
+    test("should generate unique ID in link function", () => {
+      const directiveConfig = directiveFactory();
+      const scope = { ...mockScope };
+
+      directiveConfig.link(scope, mockElement, mockAttributes);
+
+      expect(scope.uniqueId).toBeDefined();
+      expect(typeof scope.uniqueId).toBe("string");
+      expect(scope.uniqueId).toMatch(/^fps-[a-z0-9]{9}$/);
+    });
+
+    test("should render all form elements in template", () => {
+      const directiveConfig = directiveFactory();
+      const template = directiveConfig.template;
+
+      // Check for encoding select
+      expect(template).toContain("Character encoding");
+      expect(template).toContain('ng-model="file.chosenEncoding"');
+      expect(template).toContain('data-testid="encoding-select"');
+
+      // Check for delimiter select
+      expect(template).toContain("Cell delimiter");
+      expect(template).toContain('ng-model="file.chosenDelimiter"');
+      expect(template).toContain('data-testid="delimiter-select"');
+
+      // Check for start row input
+      expect(template).toContain("Start at row");
+      expect(template).toContain('ng-model="file.startAtRow"');
+      expect(template).toContain('data-testid="start-row-input"');
+
+      // Check for extra row checkbox
+      expect(template).toContain("Fill header row from first line");
+      expect(template).toContain('ng-model="file.extraRow"');
+      expect(template).toContain('data-testid="extra-row-checkbox"');
+
+      // Check for profile select (conditional)
+      expect(template).toContain("Bank profile");
+      expect(template).toContain('ng-if="showProfiles"');
+      expect(template).toContain('data-testid="profile-select"');
+
+      // Check for worksheet select (conditional)
+      expect(template).toContain("Excel worksheet");
+      expect(template).toContain(
+        'ng-if="worksheetNames && worksheetNames.length > 1"',
+      );
+      expect(template).toContain('data-testid="worksheet-select"');
+    });
+
+    test("should bind callbacks correctly", () => {
+      const directiveConfig = directiveFactory();
+      const template = directiveConfig.template;
+
+      // Check encoding change callback
+      expect(template).toContain(
+        'ng-change="onEncodingChange({encoding: file.chosenEncoding})"',
+      );
+
+      // Check delimiter change callback
+      expect(template).toContain(
+        'ng-change="onDelimiterChange({delimiter: file.chosenDelimiter})"',
+      );
+
+      // Check start row change callback
+      expect(template).toContain(
+        'ng-change="onStartRowChange({row: file.startAtRow})"',
+      );
+
+      // Check extra row change callback
+      expect(template).toContain(
+        'ng-change="onExtraRowChange({extraRow: file.extraRow})"',
+      );
+
+      // Check profile change callback
+      expect(template).toContain(
+        'ng-change="onProfileChange({profileName: profileName})"',
+      );
+
+      // Check worksheet change callback
+      expect(template).toContain(
+        'ng-change="onWorksheetChange({worksheet: selectedWorksheet})"',
+      );
+    });
+
+    test("should use unique IDs for form elements", () => {
+      const directiveConfig = directiveFactory();
+      const template = directiveConfig.template;
+
+      // Check that all form elements use unique ID pattern
+      expect(template).toContain('id="{{::uniqueId}}-encoding"');
+      expect(template).toContain('for="{{::uniqueId}}-encoding"');
+      expect(template).toContain('id="{{::uniqueId}}-delimiter"');
+      expect(template).toContain('for="{{::uniqueId}}-delimiter"');
+      expect(template).toContain('id="{{::uniqueId}}-start-row"');
+      expect(template).toContain('for="{{::uniqueId}}-start-row"');
+      expect(template).toContain('id="{{::uniqueId}}-extra-row"');
+      expect(template).toContain('for="{{::uniqueId}}-extra-row"');
+      expect(template).toContain('id="{{::uniqueId}}-profile"');
+      expect(template).toContain('for="{{::uniqueId}}-profile"');
+      expect(template).toContain('id="{{::uniqueId}}-worksheet"');
+      expect(template).toContain('for="{{::uniqueId}}-worksheet"');
+    });
+  });
+
   // TODO: Add Excel directive tests (currently complex due to sophisticated file handling logic)
 });

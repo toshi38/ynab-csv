@@ -127,6 +127,106 @@ angular.element(document).ready(function () {
       };
     },
   ]);
+  angular.module("app").directive("fileParsingSettings", [
+    function () {
+      return {
+        restrict: "E",
+        scope: {
+          file: "=",
+          profiles: "=",
+          profileName: "=",
+          onEncodingChange: "&",
+          onDelimiterChange: "&",
+          onStartRowChange: "&",
+          onExtraRowChange: "&",
+          onProfileChange: "&",
+          showProfiles: "=",
+          worksheetNames: "=",
+          selectedWorksheet: "=",
+          onWorksheetChange: "&",
+        },
+        template:
+          '<div class="file-parsing-settings">' +
+          '  <div class="form-group input-group-sm">' +
+          '    <label for="{{::uniqueId}}-encoding">Character encoding</label>' +
+          '    <select id="{{::uniqueId}}-encoding" ' +
+          '            ng-model="file.chosenEncoding" ' +
+          '            ng-options="enc for enc in file.encodings track by enc" ' +
+          '            ng-change="onEncodingChange({encoding: file.chosenEncoding})" ' +
+          '            ng-click="$event.stopPropagation()" ' +
+          '            class="form-control" ' +
+          '            data-testid="encoding-select">' +
+          "    </select>" +
+          "  </div>" +
+          '  <div class="form-group">' +
+          '    <label for="{{::uniqueId}}-delimiter">Cell delimiter</label>' +
+          '    <select id="{{::uniqueId}}-delimiter" ' +
+          '            ng-model="file.chosenDelimiter" ' +
+          '            ng-options="enc for enc in file.delimiters track by enc" ' +
+          '            ng-change="onDelimiterChange({delimiter: file.chosenDelimiter})" ' +
+          '            ng-click="$event.stopPropagation()" ' +
+          '            class="form-control" ' +
+          '            data-testid="delimiter-select">' +
+          "    </select>" +
+          "  </div>" +
+          '  <div class="form-group" ng-if="worksheetNames && worksheetNames.length > 1">' +
+          '    <label for="{{::uniqueId}}-worksheet">Excel worksheet</label>' +
+          '    <select id="{{::uniqueId}}-worksheet" ' +
+          '            ng-model="selectedWorksheet" ' +
+          '            ng-change="onWorksheetChange({worksheet: selectedWorksheet})" ' +
+          '            class="form-control" ' +
+          '            data-testid="worksheet-select">' +
+          '      <option ng-repeat="name in worksheetNames track by $index" ' +
+          '              ng-value="$index" ' +
+          '              ng-selected="$index == selectedWorksheet">' +
+          "        {{name}}" +
+          "      </option>" +
+          "    </select>" +
+          "  </div>" +
+          '  <div class="form-group">' +
+          '    <label for="{{::uniqueId}}-start-row">Start at row</label>' +
+          '    <input id="{{::uniqueId}}-start-row" ' +
+          '           type="number" ' +
+          '           min="1" ' +
+          '           ng-model="file.startAtRow" ' +
+          '           ng-change="onStartRowChange({row: file.startAtRow})" ' +
+          '           class="form-control" ' +
+          '           data-testid="start-row-input" />' +
+          "  </div>" +
+          '  <div class="form-check" style="margin-bottom: 12px">' +
+          '    <input id="{{::uniqueId}}-extra-row" ' +
+          '           type="checkbox" ' +
+          '           ng-model="file.extraRow" ' +
+          '           ng-change="onExtraRowChange({extraRow: file.extraRow})" ' +
+          '           class="form-check-input" ' +
+          '           value="" ' +
+          '           data-testid="extra-row-checkbox" />' +
+          '    <label for="{{::uniqueId}}-extra-row" class="form-check-label">' +
+          "      Fill header row from first line" +
+          "    </label>" +
+          "  </div>" +
+          '  <div class="form-group" ng-if="showProfiles">' +
+          '    <label for="{{::uniqueId}}-profile">Bank profile</label>' +
+          '    <select id="{{::uniqueId}}-profile" ' +
+          '            name="ngvalueselect" ' +
+          '            ng-model="profileName" ' +
+          '            class="form-control" ' +
+          '            ng-click="$event.stopPropagation()" ' +
+          '            ng-change="onProfileChange({profileName: profileName})" ' +
+          '            data-testid="profile-select">' +
+          '      <option ng-repeat="(name,profile) in profiles" ng-value="name">' +
+          "        {{name}}" +
+          "      </option>" +
+          "    </select>" +
+          "  </div>" +
+          "</div>",
+        link: function (scope, element, attrs) {
+          // Generate unique ID for form elements to avoid conflicts
+          scope.uniqueId = "fps-" + Math.random().toString(36).substr(2, 9);
+        },
+      };
+    },
+  ]);
   angular.module("app").directive("dropzone", [
     function () {
       return {
@@ -262,6 +362,64 @@ angular.element(document).ready(function () {
       $scope.extraRowSet = function (extraRow) {
         $scope.profile.extraRow = extraRow;
         localStorage.setItem("profiles", JSON.stringify($scope.profiles));
+      };
+      $scope.reparseFile = function () {
+        // Only reparse if we have data loaded
+        if ($scope.data.source && $scope.data.source.data) {
+          try {
+            if (
+              FileUtils.isExcelFile($scope.currentFilename || $scope.filename)
+            ) {
+              // Re-parse Excel file with current settings
+              $scope.data_object.parseExcel(
+                $scope.data.source.data,
+                $scope.currentFilename || $scope.filename,
+                $scope.file.chosenEncoding,
+                $scope.file.startAtRow,
+                $scope.profile.extraRow,
+                $scope.file.chosenDelimiter == "auto"
+                  ? null
+                  : $scope.file.chosenDelimiter,
+                $scope.file.selectedWorksheet || 0,
+              );
+            } else {
+              // Re-parse CSV file with current settings
+              if ($scope.file.chosenDelimiter == "auto") {
+                $scope.data_object.parseCsv(
+                  $scope.data.source.data,
+                  $scope.file.chosenEncoding,
+                  $scope.file.startAtRow,
+                  $scope.profile.extraRow,
+                );
+              } else {
+                $scope.data_object.parseCsv(
+                  $scope.data.source.data,
+                  $scope.file.chosenEncoding,
+                  $scope.file.startAtRow,
+                  $scope.profile.extraRow,
+                  $scope.file.chosenDelimiter,
+                );
+              }
+            }
+
+            // Update preview
+            $scope.preview = $scope.data_object.converted_json(
+              10,
+              $scope.ynab_cols,
+              $scope.ynab_map,
+              $scope.inverted_outflow,
+            );
+
+            // Save settings to profile
+            $scope.encodingChosen($scope.file.chosenEncoding);
+            $scope.delimiterChosen($scope.file.chosenDelimiter);
+            $scope.startRowSet($scope.file.startAtRow);
+            $scope.extraRowSet($scope.file.extraRow);
+          } catch (error) {
+            console.error("Error re-parsing file:", error);
+            alert("Error re-parsing file: " + error.message);
+          }
+        }
       };
       $scope.nonDefaultProfilesExist = function () {
         return Object.keys($scope.profiles).length > 1;
