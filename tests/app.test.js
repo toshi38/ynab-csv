@@ -55,6 +55,7 @@ describe("ParseController", () => {
     $scope = {
       $watch: jest.fn(),
       $apply: jest.fn((fn) => fn && fn()),
+      $evalAsync: jest.fn(),
     };
 
     // Create mock $location
@@ -786,6 +787,299 @@ describe("ParseController", () => {
 
       // Should not set selectedWorksheet for CSV files (it starts as 0 from setInitialScopeState)
       expect($scope.file.selectedWorksheet).toBe(0);
+    });
+  });
+
+  describe("File Re-parsing", () => {
+    beforeEach(() => {
+      // Mock FileUtils globally
+      global.FileUtils = {
+        isExcelFile: jest.fn(),
+      };
+
+      // Set up initial controller state
+      jest.resetModules();
+      require("../src/app.js");
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(
+        (call) => call[0] === "ParseController",
+      );
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Mock the setting functions
+      $scope.encodingChosen = jest.fn();
+      $scope.delimiterChosen = jest.fn();
+      $scope.startRowSet = jest.fn();
+      $scope.extraRowSet = jest.fn();
+    });
+
+    test("should re-parse CSV file when settings change", () => {
+      // Set up file data
+      $scope.data = {
+        source: {
+          data: "Date,Payee,Amount\n2024-01-01,Store,-50.00",
+          filename: "test.csv",
+        },
+      };
+      $scope.currentFilename = "test.csv";
+      $scope.filename = "test.csv";
+
+      global.FileUtils.isExcelFile.mockReturnValue(false);
+
+      // Change settings
+      $scope.file.chosenEncoding = "ISO-8859-1";
+      $scope.file.chosenDelimiter = ";";
+      $scope.file.startAtRow = 2;
+      $scope.file.extraRow = true;
+      $scope.profile.extraRow = true;
+
+      // Call reparseFile
+      $scope.reparseFile();
+
+      // Verify CSV was re-parsed with new settings
+      expect($scope.data_object.parseCsv).toHaveBeenCalledWith(
+        $scope.data.source.data,
+        "ISO-8859-1",
+        2,
+        true,
+        ";",
+      );
+
+      // Verify preview was updated
+      expect($scope.data_object.converted_json).toHaveBeenCalledWith(
+        10,
+        $scope.ynab_cols,
+        $scope.ynab_map,
+        $scope.inverted_outflow,
+      );
+
+      // Verify settings were saved
+      expect($scope.encodingChosen).toHaveBeenCalledWith("ISO-8859-1");
+      expect($scope.delimiterChosen).toHaveBeenCalledWith(";");
+      expect($scope.startRowSet).toHaveBeenCalledWith(2);
+      expect($scope.extraRowSet).toHaveBeenCalledWith(true);
+    });
+
+    test("should re-parse Excel file when settings change", () => {
+      // Set up file data
+      $scope.data = {
+        source: {
+          data: "excel_binary_data",
+          filename: "test.xlsx",
+        },
+      };
+      $scope.currentFilename = "test.xlsx";
+      $scope.filename = "test.xlsx";
+      $scope.file.selectedWorksheet = 1;
+
+      global.FileUtils.isExcelFile.mockReturnValue(true);
+
+      // Change settings
+      $scope.file.chosenEncoding = "UTF-16";
+      $scope.file.chosenDelimiter = "auto";
+      $scope.file.startAtRow = 3;
+      $scope.profile.extraRow = false;
+
+      // Call reparseFile
+      $scope.reparseFile();
+
+      // Verify Excel was re-parsed with new settings
+      expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
+        $scope.data.source.data,
+        "test.xlsx",
+        "UTF-16",
+        3,
+        false,
+        null, // auto delimiter
+        1, // worksheet index
+      );
+
+      // Verify preview was updated
+      expect($scope.data_object.converted_json).toHaveBeenCalled();
+    });
+
+    test("should handle re-parse with manual delimiter for Excel", () => {
+      $scope.data = {
+        source: {
+          data: "excel_binary_data",
+          filename: "test.xlsx",
+        },
+      };
+      $scope.currentFilename = "test.xlsx";
+      $scope.filename = "test.xlsx";
+      global.FileUtils.isExcelFile.mockReturnValue(true);
+      $scope.file.chosenDelimiter = ",";
+
+      $scope.reparseFile();
+
+      expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(Number),
+        expect.any(Boolean),
+        ",", // manual delimiter passed
+        expect.any(Number),
+      );
+    });
+
+    test("should not re-parse when no data is loaded", () => {
+      // No data loaded
+      $scope.data.source = null;
+
+      $scope.reparseFile();
+
+      expect($scope.data_object.parseCsv).not.toHaveBeenCalled();
+      expect($scope.data_object.parseExcel).not.toHaveBeenCalled();
+    });
+
+    test("should handle errors during re-parse", () => {
+      // Mock console.error and alert
+      global.console.error = jest.fn();
+      global.alert = jest.fn();
+
+      $scope.data = {
+        source: {
+          data: "invalid data",
+          filename: "test.csv",
+        },
+      };
+      global.FileUtils.isExcelFile.mockReturnValue(false);
+
+      // Make parseCsv throw an error
+      $scope.data_object.parseCsv.mockImplementation(() => {
+        throw new Error("Parse error");
+      });
+
+      $scope.reparseFile();
+
+      expect(global.console.error).toHaveBeenCalledWith(
+        "Error re-parsing file:",
+        expect.any(Error),
+      );
+      expect(global.alert).toHaveBeenCalledWith(
+        "Error re-parsing file: Parse error",
+      );
+
+      // Clean up
+      delete global.console.error;
+      delete global.alert;
+    });
+
+    test("should use currentFilename over filename for file type detection", () => {
+      $scope.data = {
+        source: {
+          data: "some data",
+          filename: "old.csv",
+        },
+      };
+      $scope.currentFilename = "new.xlsx";
+      $scope.filename = "old.csv";
+
+      global.FileUtils.isExcelFile.mockReturnValue(true);
+
+      $scope.reparseFile();
+
+      // Should check file type with currentFilename first
+      expect(global.FileUtils.isExcelFile).toHaveBeenCalledWith("new.xlsx");
+      expect($scope.data_object.parseExcel).toHaveBeenCalled();
+    });
+  });
+
+  describe("Worksheet Selection", () => {
+    beforeEach(() => {
+      // Mock FileUtils globally
+      global.FileUtils = {
+        isExcelFile: jest.fn().mockReturnValue(true),
+      };
+
+      // Mock alert and console.error for error handling tests
+      global.alert = jest.fn();
+      global.console.error = jest.fn();
+
+      jest.resetModules();
+      require("../src/app.js");
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(
+        (call) => call[0] === "ParseController",
+      );
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Set up Excel file scenario
+      $scope.currentFilename = "test.xlsx";
+      $scope.data = {
+        source: {
+          data: "excel_binary_data",
+          filename: "test.xlsx",
+        },
+      };
+    });
+
+    afterEach(() => {
+      // Clean up global mocks
+      delete global.alert;
+      delete global.console.error;
+    });
+
+    test("should handle worksheet selection change", () => {
+      // Call worksheetChosen with string index (as it comes from ng-value)
+      $scope.worksheetChosen("2");
+
+      // Should parse Excel with numeric index
+      expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
+        $scope.data.source.data,
+        "test.xlsx",
+        $scope.file.chosenEncoding,
+        $scope.file.startAtRow,
+        $scope.profile.extraRow,
+        null,
+        2, // Converted to number
+      );
+
+      expect($scope.data_object.converted_json).toHaveBeenCalled();
+    });
+
+    test("should handle worksheet selection with numeric index", () => {
+      // Call with numeric index directly
+      $scope.worksheetChosen(1);
+
+      expect($scope.data_object.parseExcel).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(Number),
+        expect.any(Boolean),
+        null,
+        1,
+      );
+    });
+
+    test("should handle errors during worksheet change", () => {
+      $scope.data_object.parseExcel.mockImplementation(() => {
+        throw new Error("Worksheet not found");
+      });
+
+      $scope.worksheetChosen("1");
+
+      expect(global.console.error).toHaveBeenCalledWith(
+        "Error switching worksheet:",
+        expect.any(Error),
+      );
+      expect(global.alert).toHaveBeenCalledWith(
+        "Error switching worksheet: Worksheet not found",
+      );
+    });
+
+    test("should only process worksheet change for Excel files", () => {
+      global.FileUtils.isExcelFile.mockReturnValue(false);
+      $scope.currentFilename = "test.csv";
+
+      $scope.worksheetChosen("1");
+
+      // Should not call parseExcel for non-Excel files
+      expect($scope.data_object.parseExcel).not.toHaveBeenCalled();
     });
   });
 });

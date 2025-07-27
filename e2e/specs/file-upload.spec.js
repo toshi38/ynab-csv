@@ -38,6 +38,7 @@ test.describe("File Upload", () => {
 
     await expect(ynabPage.toolWrapper).toBeVisible();
     await expect(ynabPage.dataTable).toBeVisible();
+    await expect(ynabPage.settingsToggle).toBeVisible();
   });
 
   // Test each Excel format
@@ -165,5 +166,56 @@ test.describe("File Upload", () => {
     await expect(ynabPage.delimiterSelect).toBeVisible();
     await expect(ynabPage.startRowInput).toBeVisible();
     await expect(ynabPage.extraRowCheckbox).toBeVisible();
+  });
+
+  test("settings panel appears after successful file upload", async ({
+    page,
+  }) => {
+    // Upload a valid CSV file
+    const csvContent = `Date,Description,Amount
+2024-01-01,Test Transaction,-25.00
+2024-01-02,Another Transaction,100.00`;
+
+    await page.evaluate((content) => {
+      const blob = new Blob([content], { type: "text/csv" });
+      const file = new File([blob], "settings-test.csv", { type: "text/csv" });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+
+      const fileInput = document.querySelector('[data-testid="file-input"]');
+      fileInput.files = dt.files;
+      fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }, csvContent);
+
+    // Wait for file processing
+    await expect(ynabPage.toolWrapper).toBeVisible();
+
+    // Verify settings panel toggle is visible
+    await expect(ynabPage.settingsToggle).toBeVisible();
+    await expect(ynabPage.settingsToggle).toContainText(
+      "File parsing settings",
+    );
+
+    // Settings content should be hidden initially
+    await expect(ynabPage.settingsContent).not.toBeVisible();
+
+    // Toggle should work
+    await ynabPage.toggleSettingsPanel();
+    await expect(ynabPage.settingsContent).toBeVisible();
+
+    // Should contain the same settings as pre-upload dropdown
+    const settingsContainer = ynabPage.settingsContent;
+    await expect(
+      settingsContainer.locator('[data-testid="encoding-select"]'),
+    ).toBeVisible();
+    await expect(
+      settingsContainer.locator('[data-testid="delimiter-select"]'),
+    ).toBeVisible();
+    await expect(
+      settingsContainer.locator('[data-testid="start-row-input"]'),
+    ).toBeVisible();
+    await expect(
+      settingsContainer.locator('[data-testid="extra-row-checkbox"]'),
+    ).toBeVisible();
   });
 });

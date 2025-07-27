@@ -37,6 +37,10 @@ export class YnabConverterPage {
       '[data-testid="toggle-format-button"]',
     );
     this.reloadButton = page.locator('[data-testid="reload-button"]');
+
+    // Settings panel elements
+    this.settingsToggle = page.locator('[data-testid="settings-toggle"]');
+    this.settingsContent = page.locator(".settings-content");
   }
 
   async goto() {
@@ -196,5 +200,58 @@ export class YnabConverterPage {
 
   async selectProfile(profileName) {
     await this.profileSelect.selectOption(profileName);
+  }
+
+  async toggleSettingsPanel() {
+    await this.settingsToggle.click();
+    // Wait for animation to complete
+    await this.page.waitForTimeout(300);
+  }
+
+  async isSettingsPanelVisible() {
+    return await this.settingsContent.isVisible();
+  }
+
+  async changeSettingAfterUpload(settingType, value) {
+    // Ensure settings panel is open
+    if (!(await this.isSettingsPanelVisible())) {
+      await this.toggleSettingsPanel();
+    }
+
+    // Find the setting element within the settings panel
+    const settingsContainer = this.settingsContent;
+
+    switch (settingType) {
+      case "encoding":
+        await settingsContainer
+          .locator('[data-testid="encoding-select"]')
+          .selectOption(value);
+        break;
+      case "delimiter":
+        await settingsContainer
+          .locator('[data-testid="delimiter-select"]')
+          .selectOption(value);
+        break;
+      case "startRow":
+        await settingsContainer
+          .locator('[data-testid="start-row-input"]')
+          .fill(value.toString());
+        break;
+      case "extraRow":
+        await settingsContainer
+          .locator('[data-testid="extra-row-checkbox"]')
+          .click();
+        break;
+      case "worksheet":
+        await settingsContainer
+          .locator('[data-testid="worksheet-select"]')
+          .selectOption({ index: value.toString() });
+        break;
+      default:
+        throw new Error(`Unknown setting type: ${settingType}`);
+    }
+
+    // Wait for re-parse to complete
+    await this.page.waitForTimeout(500);
   }
 }
