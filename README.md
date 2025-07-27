@@ -2,7 +2,7 @@
 
 Tool for making your CSV and Excel files ready to import into YNAB.
 
-http://aniav.github.io/ynab-csv/
+http://toshi38.github.io/ynab-csv/
 
 ## How to Use
 
