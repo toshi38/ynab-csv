@@ -11,6 +11,7 @@ global.angular = {
   })),
   module: jest.fn(() => mockModule),
   bootstrap: jest.fn(),
+  copy: jest.fn((obj) => JSON.parse(JSON.stringify(obj))),
 };
 
 // Mock DataObject
@@ -35,6 +36,21 @@ global.document = {
     appendChild: jest.fn(),
   },
 };
+
+// Mock ConfigMatcher
+global.ConfigMatcher = {
+  getAllConfigurations: jest.fn(() => ({})),
+  getConfiguration: jest.fn(),
+  findMatchingConfig: jest.fn(),
+  saveConfiguration: jest.fn(),
+  updateConfiguration: jest.fn(),
+  deleteConfiguration: jest.fn(),
+  renameConfiguration: jest.fn(),
+  incrementUsageCount: jest.fn(),
+};
+
+// Mock alert
+global.alert = jest.fn();
 
 // Mock Date prototype
 global.Date.prototype.yyyymmdd = function () {
@@ -1080,6 +1096,495 @@ describe("ParseController", () => {
 
       // Should not call parseExcel for non-Excel files
       expect($scope.data_object.parseExcel).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Auto-matching Configuration", () => {
+    beforeEach(() => {
+      // Reset ConfigMatcher mocks
+      global.ConfigMatcher.getAllConfigurations.mockReturnValue({});
+      global.ConfigMatcher.getConfiguration.mockReturnValue(null);
+      global.ConfigMatcher.findMatchingConfig.mockReturnValue(null);
+      global.ConfigMatcher.saveConfiguration.mockReturnValue(null);
+      global.ConfigMatcher.updateConfiguration.mockReturnValue(false);
+      global.ConfigMatcher.deleteConfiguration.mockReturnValue(false);
+      global.ConfigMatcher.renameConfiguration.mockReturnValue(false);
+      global.ConfigMatcher.incrementUsageCount.mockClear();
+
+      // Set up data object mock
+      $scope.data_object.base_json = [
+        { Date: "2024-01-01", Payee: "Store", Amount: "-50.00" },
+      ];
+      $scope.data_object.fields.mockReturnValue([
+        "Date",
+        "Description",
+        "Amount",
+      ]);
+      $scope.data_object.converted_json.mockReturnValue([
+        { Date: "2024-01-01", Payee: "Store", Amount: "-50.00" },
+      ]);
+      $scope.filename = "test.csv";
+    });
+
+    describe("tryAutoApplyConfig", () => {
+      test("should not attempt matching if data_object has no data", () => {
+        $scope.data_object.base_json = null;
+
+        $scope.tryAutoApplyConfig();
+
+        expect(global.ConfigMatcher.findMatchingConfig).not.toHaveBeenCalled();
+        expect($scope.matchedConfig).toBeNull();
+      });
+
+      test("should find and store matching config with high confidence", () => {
+        const mockConfig = {
+          id: "test-config-id",
+          name: "Test Config",
+          columnFormat: ["Date", "Payee", "Memo", "Amount"],
+          chosenColumns: {
+            Date: "Date",
+            Payee: "Description",
+            Amount: "Amount",
+          },
+        };
+
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+          configId: "test-config-id",
+          matchType: "exact",
+          confidence: 100,
+          config: mockConfig,
+        });
+
+        $scope.tryAutoApplyConfig();
+
+        expect(global.ConfigMatcher.findMatchingConfig).toHaveBeenCalledWith(
+          ["Date", "Description", "Amount"],
+          "test.csv",
+        );
+        expect($scope.matchedConfig).toBeDefined();
+        expect($scope.matchedConfig.confidence).toBe(100);
+        expect($scope.autoApplied).toBe(true);
+      });
+
+      test("should auto-apply config when confidence >= 80", () => {
+        const mockConfig = {
+          id: "test-config-id",
+          columnFormat: ["Date", "Payee", "Memo", "Amount"],
+          chosenColumns: { Date: "Date", Payee: "Description" },
+          chosenEncoding: "windows-1252",
+          startAtRow: 2,
+        };
+
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+          configId: "test-config-id",
+          matchType: "exact",
+          confidence: 85,
+          config: mockConfig,
+        });
+
+        $scope.tryAutoApplyConfig();
+
+        expect($scope.autoApplied).toBe(true);
+        expect($scope.ynab_cols).toEqual(["Date", "Payee", "Memo", "Amount"]);
+        expect($scope.file.chosenEncoding).toBe("windows-1252");
+        expect($scope.file.startAtRow).toBe(2);
+      });
+
+      test("should store but not auto-apply config when 60 <= confidence < 80", () => {
+        const mockConfig = {
+          id: "test-config-id",
+          columnFormat: ["Date", "Payee", "Memo", "Amount"],
+          chosenColumns: { Date: "Date" },
+        };
+
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+          configId: "test-config-id",
+          matchType: "partial",
+          confidence: 70,
+          config: mockConfig,
+        });
+
+        $scope.tryAutoApplyConfig();
+
+        expect($scope.matchedConfig).toBeDefined();
+        expect($scope.matchedConfig.confidence).toBe(70);
+        expect($scope.autoApplied).toBe(false);
+      });
+
+      test("should not store config when confidence < 60", () => {
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+          configId: "test-config-id",
+          matchType: "filename",
+          confidence: 50,
+          config: {},
+        });
+
+        $scope.tryAutoApplyConfig();
+
+        expect($scope.matchedConfig).toBeNull();
+        expect($scope.autoApplied).toBe(false);
+      });
+    });
+
+    describe("applyConfig", () => {
+      test("should apply all config settings to scope", () => {
+        const config = {
+          columnFormat: ["Date", "Payee", "Memo", "Amount"],
+          chosenColumns: { Date: "Trans Date", Payee: "Merchant" },
+          chosenEncoding: "ISO-8859-1",
+          chosenDelimiter: ";",
+          startAtRow: 3,
+          extraRow: true,
+          invertedOutflow: true,
+        };
+
+        $scope.matchedConfig = { configId: "test-id" };
+
+        $scope.applyConfig(config);
+
+        expect($scope.ynab_cols).toEqual(["Date", "Payee", "Memo", "Amount"]);
+        expect($scope.ynab_map).toEqual({
+          Date: "Trans Date",
+          Payee: "Merchant",
+        });
+        expect($scope.file.chosenEncoding).toBe("ISO-8859-1");
+        expect($scope.file.chosenDelimiter).toBe(";");
+        expect($scope.file.startAtRow).toBe(3);
+        expect($scope.file.extraRow).toBe(true);
+        expect($scope.inverted_outflow).toBe(true);
+        expect(global.ConfigMatcher.incrementUsageCount).toHaveBeenCalledWith(
+          "test-id",
+        );
+      });
+
+      test("should not fail with null config", () => {
+        expect(() => $scope.applyConfig(null)).not.toThrow();
+      });
+
+      test("should only apply defined properties", () => {
+        $scope.file.chosenEncoding = "UTF-8";
+        $scope.file.startAtRow = 1;
+
+        const config = {
+          columnFormat: ["Date", "Payee", "Memo", "Amount"],
+          // No other properties
+        };
+
+        $scope.applyConfig(config);
+
+        expect($scope.ynab_cols).toEqual(["Date", "Payee", "Memo", "Amount"]);
+        expect($scope.file.chosenEncoding).toBe("UTF-8"); // Unchanged
+        expect($scope.file.startAtRow).toBe(1); // Unchanged
+      });
+    });
+
+    describe("saveCurrentConfig", () => {
+      test("should save current settings as configuration", () => {
+        const savedConfig = {
+          id: "new-config-id",
+          name: "My Config",
+        };
+
+        global.ConfigMatcher.saveConfiguration.mockReturnValue("new-config-id");
+        global.ConfigMatcher.getConfiguration.mockReturnValue(savedConfig);
+        global.ConfigMatcher.getAllConfigurations.mockReturnValue({
+          "new-config-id": savedConfig,
+        });
+
+        $scope.ynab_cols = ["Date", "Payee", "Memo", "Amount"];
+        $scope.ynab_map = { Date: "Trans Date", Payee: "Merchant" };
+        $scope.file.chosenEncoding = "UTF-8";
+        $scope.file.chosenDelimiter = ",";
+        $scope.file.startAtRow = 1;
+        $scope.file.extraRow = false;
+        $scope.inverted_outflow = false;
+
+        const result = $scope.saveCurrentConfig("My Config");
+
+        expect(result).toBe("new-config-id");
+        expect(global.ConfigMatcher.saveConfiguration).toHaveBeenCalledWith(
+          ["Date", "Description", "Amount"],
+          "test.csv",
+          {
+            columnFormat: ["Date", "Payee", "Memo", "Amount"],
+            chosenColumns: { Date: "Trans Date", Payee: "Merchant" },
+            chosenEncoding: "UTF-8",
+            chosenDelimiter: ",",
+            startAtRow: 1,
+            extraRow: false,
+            invertedOutflow: false,
+          },
+          "My Config",
+        );
+        expect($scope.matchedConfig).toBeDefined();
+        expect($scope.matchedConfig.configId).toBe("new-config-id");
+      });
+
+      test("should return null if no data loaded", () => {
+        $scope.data_object.base_json = null;
+
+        const result = $scope.saveCurrentConfig("Test");
+
+        expect(result).toBeNull();
+        expect(global.ConfigMatcher.saveConfiguration).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("updateMatchedConfig", () => {
+      test("should update existing matched configuration", () => {
+        $scope.matchedConfig = {
+          configId: "existing-config-id",
+          config: { name: "Old Config" },
+        };
+
+        global.ConfigMatcher.updateConfiguration.mockReturnValue(true);
+        global.ConfigMatcher.getConfiguration.mockReturnValue({
+          name: "Updated Config",
+        });
+        global.ConfigMatcher.getAllConfigurations.mockReturnValue({});
+
+        $scope.ynab_cols = ["Date", "Payee", "Memo", "Amount"];
+        $scope.file.startAtRow = 2;
+
+        const result = $scope.updateMatchedConfig();
+
+        expect(result).toBe(true);
+        expect(global.ConfigMatcher.updateConfiguration).toHaveBeenCalledWith(
+          "existing-config-id",
+          expect.objectContaining({
+            columnFormat: ["Date", "Payee", "Memo", "Amount"],
+            startAtRow: 2,
+          }),
+        );
+      });
+
+      test("should return false if no matched config", () => {
+        $scope.matchedConfig = null;
+
+        const result = $scope.updateMatchedConfig();
+
+        expect(result).toBe(false);
+        expect(global.ConfigMatcher.updateConfiguration).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("deleteConfig", () => {
+      test("should delete configuration and clear matched config if same", () => {
+        $scope.matchedConfig = {
+          configId: "config-to-delete",
+          config: {},
+        };
+        $scope.autoApplied = true;
+
+        global.ConfigMatcher.deleteConfiguration.mockReturnValue(true);
+        global.ConfigMatcher.getAllConfigurations.mockReturnValue({});
+
+        $scope.deleteConfig("config-to-delete");
+
+        expect(global.ConfigMatcher.deleteConfiguration).toHaveBeenCalledWith(
+          "config-to-delete",
+        );
+        expect($scope.matchedConfig).toBeNull();
+        expect($scope.autoApplied).toBe(false);
+      });
+
+      test("should not clear matched config if different config deleted", () => {
+        $scope.matchedConfig = {
+          configId: "other-config",
+          config: {},
+        };
+
+        global.ConfigMatcher.deleteConfiguration.mockReturnValue(true);
+        global.ConfigMatcher.getAllConfigurations.mockReturnValue({});
+
+        $scope.deleteConfig("config-to-delete");
+
+        expect($scope.matchedConfig).not.toBeNull();
+        expect($scope.matchedConfig.configId).toBe("other-config");
+      });
+    });
+
+    describe("renameConfig", () => {
+      test("should rename configuration and update matched config name", () => {
+        $scope.matchedConfig = {
+          configId: "config-id",
+          config: { name: "Old Name" },
+        };
+
+        global.ConfigMatcher.renameConfiguration.mockReturnValue(true);
+        global.ConfigMatcher.getAllConfigurations.mockReturnValue({});
+
+        $scope.renameConfig("config-id", "New Name");
+
+        expect(global.ConfigMatcher.renameConfiguration).toHaveBeenCalledWith(
+          "config-id",
+          "New Name",
+        );
+        expect($scope.matchedConfig.config.name).toBe("New Name");
+      });
+    });
+
+    describe("hasSavedConfigs", () => {
+      test("should return true when configs exist", () => {
+        $scope.savedConfigs = {
+          "config-1": {},
+          "config-2": {},
+        };
+
+        expect($scope.hasSavedConfigs()).toBe(true);
+      });
+
+      test("should return false when no configs exist", () => {
+        $scope.savedConfigs = {};
+
+        expect($scope.hasSavedConfigs()).toBe(false);
+      });
+    });
+
+    describe("dismissAutoApply", () => {
+      test("should set autoApplied to false", () => {
+        $scope.autoApplied = true;
+
+        $scope.dismissAutoApply();
+
+        expect($scope.autoApplied).toBe(false);
+      });
+    });
+
+    describe("downloadFile auto-save", () => {
+      beforeEach(() => {
+        const mockAnchor = {
+          href: "",
+          target: "",
+          download: "",
+          click: jest.fn(),
+        };
+        global.document.createElement = jest.fn(() => mockAnchor);
+        global.document.body.appendChild = jest.fn();
+
+        $scope.data_object.converted_csv = jest.fn(() => "Date,Payee,Amount");
+
+        const mockDate = new Date("2024-01-01");
+        mockDate.yyyymmdd = jest.fn(() => "20240101");
+        jest.spyOn(global, "Date").mockImplementation(() => mockDate);
+      });
+
+      afterEach(() => {
+        global.Date.mockRestore();
+      });
+
+      test("should save new config on download when no matched config", () => {
+        $scope.matchedConfig = null;
+        global.ConfigMatcher.saveConfiguration.mockReturnValue("new-config");
+        global.ConfigMatcher.getConfiguration.mockReturnValue({});
+        global.ConfigMatcher.getAllConfigurations.mockReturnValue({});
+
+        $scope.downloadFile();
+
+        expect(global.ConfigMatcher.saveConfiguration).toHaveBeenCalled();
+      });
+
+      test("should update existing config on download when matched", () => {
+        $scope.matchedConfig = {
+          configId: "existing-config",
+          config: {},
+        };
+        global.ConfigMatcher.updateConfiguration.mockReturnValue(true);
+        global.ConfigMatcher.getConfiguration.mockReturnValue({});
+        global.ConfigMatcher.getAllConfigurations.mockReturnValue({});
+
+        $scope.downloadFile();
+
+        expect(global.ConfigMatcher.updateConfiguration).toHaveBeenCalledWith(
+          "existing-config",
+          expect.any(Object),
+        );
+      });
+    });
+
+    describe("tryAutoApplyConfig in data.source watcher", () => {
+      test("should call tryAutoApplyConfig after parsing file", () => {
+        // Set up watchers
+        const watchCallbacks = {};
+        $scope.$watch.mockImplementation((expr, callback) => {
+          watchCallbacks[expr] = callback;
+        });
+
+        // Re-initialize to capture watch callbacks
+        jest.resetModules();
+        require("../src/app.js");
+        const controllerCalls = mockModule.controller.mock.calls;
+        const parseControllerCall = controllerCalls.find(
+          (call) => call[0] === "ParseController",
+        );
+        const controllerFn = parseControllerCall[1];
+        controllerFn($scope, $location);
+
+        // Set up CSV file scenario
+        $scope.data_object.isExcelFile.mockReturnValue(false);
+        $scope.data_object.base_json = [{ Date: "2024-01-01" }];
+
+        // Set up matching config
+        const mockConfig = {
+          id: "auto-match-id",
+          columnFormat: ["Date", "Payee", "Memo", "Amount"],
+          chosenColumns: { Date: "Date" },
+        };
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+          configId: "auto-match-id",
+          matchType: "exact",
+          confidence: 100,
+          config: mockConfig,
+        });
+
+        const csvData = {
+          data: "Date,Payee,Amount\n2024-01-01,Store,-50.00",
+          filename: "test.csv",
+        };
+
+        watchCallbacks["data.source"](csvData, null);
+
+        expect(global.ConfigMatcher.findMatchingConfig).toHaveBeenCalled();
+        expect($scope.matchedConfig).toBeDefined();
+        expect($scope.autoApplied).toBe(true);
+      });
+
+      test("should reset auto-match state before trying to match", () => {
+        // Set up watchers
+        const watchCallbacks = {};
+        $scope.$watch.mockImplementation((expr, callback) => {
+          watchCallbacks[expr] = callback;
+        });
+
+        // Re-initialize to capture watch callbacks
+        jest.resetModules();
+        require("../src/app.js");
+        const controllerCalls = mockModule.controller.mock.calls;
+        const parseControllerCall = controllerCalls.find(
+          (call) => call[0] === "ParseController",
+        );
+        const controllerFn = parseControllerCall[1];
+        controllerFn($scope, $location);
+
+        // Set initial state
+        $scope.matchedConfig = { configId: "old-config" };
+        $scope.autoApplied = true;
+        $scope.data_object.isExcelFile.mockReturnValue(false);
+
+        // No matching config this time
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue(null);
+
+        const csvData = {
+          data: "NewHeader1,NewHeader2\nval1,val2",
+          filename: "different.csv",
+        };
+
+        watchCallbacks["data.source"](csvData, null);
+
+        // Should have been reset
+        expect($scope.matchedConfig).toBeNull();
+        expect($scope.autoApplied).toBe(false);
+      });
     });
   });
 });
