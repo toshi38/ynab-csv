@@ -155,3 +155,38 @@ body.angular_loaded #angular_is_loading {
 .file-parsing-settings .form-check {
   flex: 1 1 100%;
 }
+
+/* Auto-match notification styles */
+.alert-dismissible .close {
+  padding: 0.5rem 1rem;
+}
+
+/* Saved configs card on landing page */
+#upload_wrapper .card {
+  max-width: 400px;
+  margin: 20px auto 0;
+  text-align: left;
+}
+
+#upload_wrapper .list-group-item {
+  padding: 0.75rem 1rem;
+}
+
+/* Config save button group */
+[data-testid="config-save-group"] {
+  margin-left: 5px;
+}
+
+/* Match confidence badge */
+.badge-pill {
+  font-size: 0.75em;
+  vertical-align: middle;
+}
+
+/* Make buttons wrap nicely on smaller screens */
+.card-header .float-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: flex-end;
+}

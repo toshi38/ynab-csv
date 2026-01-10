@@ -40,6 +40,7 @@
     <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.6.7/angular.js"></script>
 
     <script src="src/file_utils.js"></script>
+    <script src="src/config_matcher.js"></script>
     <script src="src/data_object.js"></script>
     <script src="src/app.js"></script>
     <script
@@ -146,6 +147,58 @@
               </div>
             </div>
           </form>
+
+          <!-- Saved Configurations Management -->
+          <div
+            class="card mt-4"
+            ng-if="hasSavedConfigs()"
+            data-testid="saved-configs-card"
+          >
+            <div class="card-header">
+              <h6 class="mb-0">
+                <i class="fa fa-cog"></i> Saved Configurations
+              </h6>
+            </div>
+            <ul
+              class="list-group list-group-flush"
+              data-testid="saved-configs-list"
+            >
+              <li
+                class="list-group-item d-flex justify-content-between align-items-center"
+                ng-repeat="(id, config) in savedConfigs track by id"
+                data-testid="saved-config-item"
+              >
+                <div>
+                  <strong>{{config.name}}</strong>
+                  <br />
+                  <small class="text-muted">
+                    Used {{config.useCount}} time{{config.useCount !== 1 ? 's' :
+                    ''}}
+                  </small>
+                </div>
+                <div class="btn-group btn-group-sm">
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    ng-click="promptRenameConfig(id)"
+                    title="Rename"
+                    data-testid="rename-config-btn"
+                  >
+                    <i class="fa fa-pencil"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-danger"
+                    ng-click="deleteConfig(id)"
+                    title="Delete"
+                    data-testid="delete-config-btn"
+                  >
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </div>
+              </li>
+            </ul>
+          </div>
         </div>
 
         <div
@@ -190,6 +243,46 @@
             </div>
           </div>
 
+          <!-- Auto-apply notification banner -->
+          <div
+            class="alert alert-success alert-dismissible mb-3"
+            ng-if="autoApplied && matchedConfig"
+            data-testid="auto-apply-notification"
+          >
+            <button type="button" class="close" ng-click="dismissAutoApply()">
+              <span>&times;</span>
+            </button>
+            <i class="fa fa-magic"></i>
+            <strong>Configuration auto-applied!</strong>
+            Settings loaded from "{{matchedConfig.config.name}}"
+            <span class="badge badge-pill badge-light"
+              >{{matchedConfig.confidence}}% match</span
+            >
+          </div>
+
+          <!-- Partial match suggestion banner -->
+          <div
+            class="alert alert-info alert-dismissible mb-3"
+            ng-if="matchedConfig && !autoApplied && matchedConfig.confidence < 80"
+            data-testid="config-suggestion"
+          >
+            <button type="button" class="close" ng-click="matchedConfig = null">
+              <span>&times;</span>
+            </button>
+            <i class="fa fa-lightbulb-o"></i>
+            Found similar configuration: "{{matchedConfig.config.name}}"
+            <span class="badge badge-pill badge-light"
+              >{{matchedConfig.confidence}}% match</span
+            >
+            <button
+              class="btn btn-sm btn-info ml-2"
+              ng-click="applyConfig(matchedConfig.config); autoApplied = true"
+              data-testid="apply-config-btn"
+            >
+              Apply
+            </button>
+          </div>
+
           <div class="card">
             <div class="card-header">
               <div class="float-right">
@@ -207,6 +300,48 @@
                   data-testid="toggle-format-button"
                 >
                   <i class="fa fa-exchange"></i> Toggle column format
+                </div>
+                <!-- Save/Update config buttons -->
+                <div class="btn-group" data-testid="config-save-group">
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    ng-click="matchedConfig ? updateMatchedConfig() : saveCurrentConfig()"
+                    data-testid="save-config-btn"
+                  >
+                    <i class="fa fa-save"></i>
+                    {{matchedConfig ? 'Update "' + matchedConfig.config.name +
+                    '"' : 'Save Config'}}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split"
+                    data-toggle="dropdown"
+                    aria-haspopup="true"
+                    aria-expanded="false"
+                  >
+                    <span class="sr-only">Toggle Dropdown</span>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-right">
+                    <a
+                      class="dropdown-item"
+                      href="#"
+                      ng-click="saveConfigWithName($event)"
+                      data-testid="save-config-as"
+                    >
+                      <i class="fa fa-pencil"></i> Save as...
+                    </a>
+                    <div class="dropdown-divider" ng-if="matchedConfig"></div>
+                    <a
+                      class="dropdown-item text-danger"
+                      href="#"
+                      ng-click="deleteConfig(matchedConfig.configId); $event.preventDefault()"
+                      ng-if="matchedConfig"
+                      data-testid="delete-current-config"
+                    >
+                      <i class="fa fa-trash"></i> Delete this config
+                    </a>
+                  </div>
                 </div>
               </div>
               <h4>

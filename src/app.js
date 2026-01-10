@@ -333,6 +333,11 @@ angular.element(document).ready(function () {
         };
         $scope.data_object = new DataObject();
         $scope.filename = null;
+
+        // Auto-matching configuration state
+        $scope.matchedConfig = null;
+        $scope.autoApplied = false;
+        $scope.savedConfigs = ConfigMatcher.getAllConfigurations();
       };
 
       $scope.setInitialScopeState();
@@ -434,6 +439,210 @@ angular.element(document).ready(function () {
         localStorage.setItem("profiles", JSON.stringify($scope.profiles));
       };
 
+      // ============================================
+      // Auto-matching configuration methods
+      // ============================================
+
+      // Try to auto-apply a matching configuration
+      $scope.tryAutoApplyConfig = function () {
+        if (!$scope.data_object || !$scope.data_object.base_json) {
+          return;
+        }
+
+        var headers = $scope.data_object.fields();
+        var match = ConfigMatcher.findMatchingConfig(headers, $scope.filename);
+
+        if (match && match.confidence >= 60) {
+          $scope.matchedConfig = match;
+
+          // Auto-apply if confidence is high enough
+          if (match.confidence >= 80) {
+            $scope.applyConfig(match.config);
+            $scope.autoApplied = true;
+          }
+        }
+      };
+
+      // Apply a configuration to current settings
+      $scope.applyConfig = function (config) {
+        if (!config) return;
+
+        // Apply column format
+        if (config.columnFormat) {
+          $scope.ynab_cols = config.columnFormat;
+        }
+
+        // Apply column mappings
+        if (config.chosenColumns) {
+          $scope.ynab_map = angular.copy(config.chosenColumns);
+        }
+
+        // Apply file settings
+        if (config.chosenEncoding) {
+          $scope.file.chosenEncoding = config.chosenEncoding;
+        }
+        if (config.chosenDelimiter) {
+          $scope.file.chosenDelimiter = config.chosenDelimiter;
+        }
+        if (config.startAtRow) {
+          $scope.file.startAtRow = config.startAtRow;
+        }
+        if (typeof config.extraRow !== "undefined") {
+          $scope.file.extraRow = config.extraRow;
+        }
+        if (typeof config.invertedOutflow !== "undefined") {
+          $scope.inverted_outflow = config.invertedOutflow;
+        }
+
+        // Update preview
+        $scope.preview = $scope.data_object.converted_json(
+          10,
+          $scope.ynab_cols,
+          $scope.ynab_map,
+          $scope.inverted_outflow,
+        );
+
+        // Increment usage count
+        if ($scope.matchedConfig && $scope.matchedConfig.configId) {
+          ConfigMatcher.incrementUsageCount($scope.matchedConfig.configId);
+        }
+      };
+
+      // Save current settings as a configuration
+      $scope.saveCurrentConfig = function (name) {
+        if (!$scope.data_object || !$scope.data_object.base_json) {
+          return null;
+        }
+
+        var headers = $scope.data_object.fields();
+        var settings = {
+          columnFormat: $scope.ynab_cols,
+          chosenColumns: $scope.ynab_map,
+          chosenEncoding: $scope.file.chosenEncoding,
+          chosenDelimiter: $scope.file.chosenDelimiter,
+          startAtRow: $scope.file.startAtRow,
+          extraRow: $scope.file.extraRow,
+          invertedOutflow: $scope.inverted_outflow,
+        };
+
+        var configId = ConfigMatcher.saveConfiguration(
+          headers,
+          $scope.filename,
+          settings,
+          name,
+        );
+
+        if (configId) {
+          $scope.matchedConfig = {
+            configId: configId,
+            matchType: "exact",
+            confidence: 100,
+            config: ConfigMatcher.getConfiguration(configId),
+          };
+          $scope.refreshSavedConfigs();
+        }
+
+        return configId;
+      };
+
+      // Update the currently matched configuration
+      $scope.updateMatchedConfig = function () {
+        if (!$scope.matchedConfig || !$scope.matchedConfig.configId) {
+          return false;
+        }
+
+        var result = ConfigMatcher.updateConfiguration(
+          $scope.matchedConfig.configId,
+          {
+            columnFormat: $scope.ynab_cols,
+            chosenColumns: $scope.ynab_map,
+            chosenEncoding: $scope.file.chosenEncoding,
+            chosenDelimiter: $scope.file.chosenDelimiter,
+            startAtRow: $scope.file.startAtRow,
+            extraRow: $scope.file.extraRow,
+            invertedOutflow: $scope.inverted_outflow,
+          },
+        );
+
+        if (result) {
+          $scope.matchedConfig.config = ConfigMatcher.getConfiguration(
+            $scope.matchedConfig.configId,
+          );
+          $scope.refreshSavedConfigs();
+        }
+
+        return result;
+      };
+
+      // Refresh the saved configurations list
+      $scope.refreshSavedConfigs = function () {
+        $scope.savedConfigs = ConfigMatcher.getAllConfigurations();
+      };
+
+      // Delete a saved configuration
+      $scope.deleteConfig = function (configId) {
+        if (ConfigMatcher.deleteConfiguration(configId)) {
+          if (
+            $scope.matchedConfig &&
+            $scope.matchedConfig.configId === configId
+          ) {
+            $scope.matchedConfig = null;
+            $scope.autoApplied = false;
+          }
+          $scope.refreshSavedConfigs();
+        }
+      };
+
+      // Rename a saved configuration
+      $scope.renameConfig = function (configId, newName) {
+        if (ConfigMatcher.renameConfiguration(configId, newName)) {
+          if (
+            $scope.matchedConfig &&
+            $scope.matchedConfig.configId === configId
+          ) {
+            $scope.matchedConfig.config.name = newName;
+          }
+          $scope.refreshSavedConfigs();
+        }
+      };
+
+      // Save config with user-provided name (shows prompt)
+      $scope.saveConfigWithName = function ($event) {
+        if ($event) $event.preventDefault();
+
+        var name = prompt(
+          "Enter a name for this configuration:",
+          $scope.matchedConfig
+            ? $scope.matchedConfig.config.name
+            : $scope.filename || "My Configuration",
+        );
+
+        if (name) {
+          $scope.saveCurrentConfig(name);
+        }
+      };
+
+      // Prompt to rename an existing configuration
+      $scope.promptRenameConfig = function (configId) {
+        var config = ConfigMatcher.getConfiguration(configId);
+        if (!config) return;
+
+        var newName = prompt("Enter a new name:", config.name);
+        if (newName && newName !== config.name) {
+          $scope.renameConfig(configId, newName);
+        }
+      };
+
+      // Dismiss the auto-apply notification
+      $scope.dismissAutoApply = function () {
+        $scope.autoApplied = false;
+      };
+
+      // Check if any saved configs exist
+      $scope.hasSavedConfigs = function () {
+        return Object.keys($scope.savedConfigs).length > 0;
+      };
+
       $scope.$watch("data.source", function (newValue, oldValue) {
         if (newValue && newValue.data && newValue.filename) {
           try {
@@ -490,6 +699,11 @@ angular.element(document).ready(function () {
               $scope.ynab_map,
               $scope.inverted_outflow,
             );
+
+            // Reset auto-match state and try to find matching config
+            $scope.matchedConfig = null;
+            $scope.autoApplied = false;
+            $scope.tryAutoApplyConfig();
           } catch (error) {
             console.error("Error parsing file:", error);
             alert("Error parsing file: " + error.message);
@@ -576,6 +790,17 @@ angular.element(document).ready(function () {
         }
       };
       $scope.downloadFile = function () {
+        // Auto-save configuration on download
+        if ($scope.data_object && $scope.data_object.base_json) {
+          if ($scope.matchedConfig) {
+            // Update existing configuration
+            $scope.updateMatchedConfig();
+          } else {
+            // Save as new configuration
+            $scope.saveCurrentConfig();
+          }
+        }
+
         var a;
         var date = new Date();
         a = document.createElement("a");

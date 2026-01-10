@@ -41,6 +41,18 @@ export class YnabConverterPage {
     // Settings panel elements
     this.settingsToggle = page.locator('[data-testid="settings-toggle"]');
     this.settingsContent = page.locator(".settings-content");
+
+    // Auto-matching configuration elements
+    this.autoApplyNotification = page.locator(
+      '[data-testid="auto-apply-notification"]',
+    );
+    this.partialMatchSuggestion = page.locator(
+      '[data-testid="config-suggestion"]',
+    );
+    this.savedConfigsList = page.locator('[data-testid="saved-configs-list"]');
+    this.savedConfigsCard = page.locator('[data-testid="saved-configs-card"]');
+    this.saveConfigButton = page.locator('[data-testid="save-config-btn"]');
+    this.saveConfigDropdown = page.locator('[data-testid="config-save-group"]');
   }
 
   async goto() {
@@ -253,5 +265,94 @@ export class YnabConverterPage {
 
     // Wait for re-parse to complete
     await this.page.waitForTimeout(500);
+  }
+
+  // Auto-matching configuration methods
+  async isAutoApplied() {
+    return await this.autoApplyNotification.isVisible();
+  }
+
+  async getAutoApplyMessage() {
+    if (await this.autoApplyNotification.isVisible()) {
+      return await this.autoApplyNotification.textContent();
+    }
+    return null;
+  }
+
+  async dismissAutoApply() {
+    const closeButton = this.autoApplyNotification.locator("button.close");
+    if (await closeButton.isVisible()) {
+      await closeButton.click();
+    }
+  }
+
+  async saveConfigAs(name) {
+    // Handle the prompt dialog BEFORE triggering it
+    this.page.once("dialog", async (dialog) => {
+      await dialog.accept(name);
+    });
+
+    // Click the dropdown toggle to show options
+    const dropdownToggle = this.saveConfigDropdown.locator(
+      ".dropdown-toggle-split",
+    );
+    await dropdownToggle.click();
+
+    // Click "Save as..." option
+    const saveAsButton = this.page.locator('[data-testid="save-config-as"]');
+    await saveAsButton.click();
+  }
+
+  async getSavedConfigsCount() {
+    const items = this.page.locator('[data-testid="saved-config-item"]');
+    return await items.count();
+  }
+
+  async getSavedConfigNames() {
+    const names = [];
+    const items = this.page.locator('[data-testid="saved-config-item"]');
+    const count = await items.count();
+
+    for (let i = 0; i < count; i++) {
+      const nameEl = items.nth(i).locator("strong");
+      const name = await nameEl.textContent();
+      names.push(name.trim());
+    }
+
+    return names;
+  }
+
+  async deleteConfigAt(index) {
+    const items = this.page.locator('[data-testid="saved-config-item"]');
+    const deleteButton = items
+      .nth(index)
+      .locator('[data-testid="delete-config-btn"]');
+    await deleteButton.click();
+  }
+
+  async renameConfigAt(index, newName) {
+    // Handle the prompt dialog BEFORE triggering it
+    this.page.once("dialog", async (dialog) => {
+      await dialog.accept(newName);
+    });
+
+    const items = this.page.locator('[data-testid="saved-config-item"]');
+    const renameButton = items
+      .nth(index)
+      .locator('[data-testid="rename-config-btn"]');
+    await renameButton.click();
+  }
+
+  async clearLocalStorage() {
+    await this.page.evaluate(() => {
+      localStorage.removeItem("knownConfigurations");
+    });
+  }
+
+  async getLocalStorageConfigs() {
+    return await this.page.evaluate(() => {
+      const stored = localStorage.getItem("knownConfigurations");
+      return stored ? JSON.parse(stored) : null;
+    });
   }
 }
