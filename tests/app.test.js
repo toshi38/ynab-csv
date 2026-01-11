@@ -42,6 +42,7 @@ global.ConfigMatcher = {
   getAllConfigurations: jest.fn(() => ({})),
   getConfiguration: jest.fn(),
   findMatchingConfig: jest.fn(),
+  findMatchingConfigWithStartRow: jest.fn(),
   saveConfiguration: jest.fn(),
   updateConfiguration: jest.fn(),
   deleteConfiguration: jest.fn(),
@@ -606,9 +607,9 @@ describe("ParseController", () => {
       const controllerFn = parseControllerCall[1];
       controllerFn($scope, $location);
 
-      // Set up Excel file scenario with custom delimiter
+      // Set up Excel file scenario with custom delimiter in profile
       $scope.data_object.isExcelFile.mockReturnValue(true);
-      $scope.file.chosenDelimiter = ";";
+      $scope.profile.chosenDelimiter = ";";
 
       const excelData = {
         data: "excel_binary_data",
@@ -1105,6 +1106,7 @@ describe("ParseController", () => {
       global.ConfigMatcher.getAllConfigurations.mockReturnValue({});
       global.ConfigMatcher.getConfiguration.mockReturnValue(null);
       global.ConfigMatcher.findMatchingConfig.mockReturnValue(null);
+      global.ConfigMatcher.findMatchingConfigWithStartRow.mockReturnValue(null);
       global.ConfigMatcher.saveConfiguration.mockReturnValue(null);
       global.ConfigMatcher.updateConfiguration.mockReturnValue(false);
       global.ConfigMatcher.deleteConfiguration.mockReturnValue(false);
@@ -1124,15 +1126,25 @@ describe("ParseController", () => {
         { Date: "2024-01-01", Payee: "Store", Amount: "-50.00" },
       ]);
       $scope.filename = "test.csv";
+
+      // Set up data.source for tryAutoApplyConfig (it now reads raw content)
+      $scope.data = {
+        source: {
+          data: "Date,Description,Amount\n2024-01-01,Store,-50.00",
+          filename: "test.csv",
+        },
+      };
     });
 
     describe("tryAutoApplyConfig", () => {
-      test("should not attempt matching if data_object has no data", () => {
-        $scope.data_object.base_json = null;
+      test("should not attempt matching if data.source is not available", () => {
+        $scope.data = null;
 
         $scope.tryAutoApplyConfig();
 
-        expect(global.ConfigMatcher.findMatchingConfig).not.toHaveBeenCalled();
+        expect(
+          global.ConfigMatcher.findMatchingConfigWithStartRow,
+        ).not.toHaveBeenCalled();
         expect($scope.matchedConfig).toBeNull();
       });
 
@@ -1148,7 +1160,7 @@ describe("ParseController", () => {
           },
         };
 
-        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+        global.ConfigMatcher.findMatchingConfigWithStartRow.mockReturnValue({
           configId: "test-config-id",
           matchType: "exact",
           confidence: 100,
@@ -1157,9 +1169,12 @@ describe("ParseController", () => {
 
         $scope.tryAutoApplyConfig();
 
-        expect(global.ConfigMatcher.findMatchingConfig).toHaveBeenCalledWith(
-          ["Date", "Description", "Amount"],
+        expect(
+          global.ConfigMatcher.findMatchingConfigWithStartRow,
+        ).toHaveBeenCalledWith(
+          "Date,Description,Amount\n2024-01-01,Store,-50.00",
           "test.csv",
+          null,
         );
         expect($scope.matchedConfig).toBeDefined();
         expect($scope.matchedConfig.confidence).toBe(100);
@@ -1175,7 +1190,7 @@ describe("ParseController", () => {
           startAtRow: 2,
         };
 
-        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+        global.ConfigMatcher.findMatchingConfigWithStartRow.mockReturnValue({
           configId: "test-config-id",
           matchType: "exact",
           confidence: 85,
@@ -1197,7 +1212,7 @@ describe("ParseController", () => {
           chosenColumns: { Date: "Date" },
         };
 
-        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+        global.ConfigMatcher.findMatchingConfigWithStartRow.mockReturnValue({
           configId: "test-config-id",
           matchType: "partial",
           confidence: 70,
@@ -1212,7 +1227,7 @@ describe("ParseController", () => {
       });
 
       test("should not store config when confidence < 60", () => {
-        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+        global.ConfigMatcher.findMatchingConfigWithStartRow.mockReturnValue({
           configId: "test-config-id",
           matchType: "filename",
           confidence: 50,
@@ -1502,8 +1517,8 @@ describe("ParseController", () => {
       });
     });
 
-    describe("tryAutoApplyConfig in data.source watcher", () => {
-      test("should call tryAutoApplyConfig after parsing file", () => {
+    describe("auto-matching in data.source watcher", () => {
+      test("should apply matching config for CSV files before parsing", () => {
         // Set up watchers
         const watchCallbacks = {};
         $scope.$watch.mockImplementation((expr, callback) => {
@@ -1524,29 +1539,34 @@ describe("ParseController", () => {
         $scope.data_object.isExcelFile.mockReturnValue(false);
         $scope.data_object.base_json = [{ Date: "2024-01-01" }];
 
-        // Set up matching config
+        // Set up matching config with different startAtRow
         const mockConfig = {
           id: "auto-match-id",
           columnFormat: ["Date", "Payee", "Memo", "Amount"],
           chosenColumns: { Date: "Date" },
+          startAtRow: 3,
         };
-        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+        global.ConfigMatcher.findMatchingConfigWithStartRow.mockReturnValue({
           configId: "auto-match-id",
           matchType: "exact",
           confidence: 100,
           config: mockConfig,
+          detectedStartAtRow: 3,
         });
 
         const csvData = {
-          data: "Date,Payee,Amount\n2024-01-01,Store,-50.00",
+          data: "Header1\nHeader2\nDate,Payee,Amount\n2024-01-01,Store,-50.00",
           filename: "test.csv",
         };
 
         watchCallbacks["data.source"](csvData, null);
 
-        expect(global.ConfigMatcher.findMatchingConfig).toHaveBeenCalled();
+        expect(
+          global.ConfigMatcher.findMatchingConfigWithStartRow,
+        ).toHaveBeenCalled();
         expect($scope.matchedConfig).toBeDefined();
         expect($scope.autoApplied).toBe(true);
+        expect($scope.file.startAtRow).toBe(3);
       });
 
       test("should reset auto-match state before trying to match", () => {
@@ -1572,7 +1592,9 @@ describe("ParseController", () => {
         $scope.data_object.isExcelFile.mockReturnValue(false);
 
         // No matching config this time
-        global.ConfigMatcher.findMatchingConfig.mockReturnValue(null);
+        global.ConfigMatcher.findMatchingConfigWithStartRow.mockReturnValue(
+          null,
+        );
 
         const csvData = {
           data: "NewHeader1,NewHeader2\nval1,val2",

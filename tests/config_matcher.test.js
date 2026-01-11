@@ -33,6 +33,93 @@ describe("ConfigMatcher", () => {
       configurable: true,
     });
 
+    // Mock PapaParse for extractHeadersFromContent
+    global.Papa = {
+      parse: jest.fn((content, config) => {
+        // Simple CSV parsing for tests
+        let lines = content.split(/\r\n|\n|\r/);
+
+        // Apply beforeFirstChunk if provided
+        if (config.beforeFirstChunk) {
+          const transformed = config.beforeFirstChunk(content);
+          lines = transformed.split(/\r\n|\n|\r/);
+        }
+
+        // Check if content is empty after processing
+        if (lines.length === 0 || (lines.length === 1 && lines[0] === "")) {
+          return { meta: { fields: [] }, data: [] };
+        }
+
+        // Get header line
+        let headerLine = lines[0] || "";
+
+        // Return empty if line is empty
+        if (!headerLine || headerLine.trim() === "") {
+          return { meta: { fields: [] }, data: [] };
+        }
+
+        // Remove BOM if present
+        if (headerLine.charCodeAt(0) === 0xfeff) {
+          headerLine = headerLine.substring(1);
+        }
+
+        // Auto-detect delimiter if not specified
+        let delimiter = config.delimiter;
+        if (!delimiter) {
+          // Count occurrences of common delimiters
+          const commaCount = (headerLine.match(/,/g) || []).length;
+          const semicolonCount = (headerLine.match(/;/g) || []).length;
+          const tabCount = (headerLine.match(/\t/g) || []).length;
+          const pipeCount = (headerLine.match(/\|/g) || []).length;
+
+          const maxCount = Math.max(
+            commaCount,
+            semicolonCount,
+            tabCount,
+            pipeCount,
+          );
+          if (maxCount === 0) {
+            delimiter = ",";
+          } else if (semicolonCount === maxCount) {
+            delimiter = ";";
+          } else if (tabCount === maxCount) {
+            delimiter = "\t";
+          } else if (pipeCount === maxCount) {
+            delimiter = "|";
+          } else {
+            delimiter = ",";
+          }
+        }
+
+        // Split headers, handling quotes
+        let headers = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < headerLine.length; i++) {
+          const char = headerLine[i];
+          if (char === '"' && (i === 0 || headerLine[i - 1] !== "\\")) {
+            inQuotes = !inQuotes;
+          } else if (char === delimiter && !inQuotes) {
+            headers.push(current.trim().replace(/^["']|["']$/g, ""));
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+        headers.push(current.trim().replace(/^["']|["']$/g, ""));
+
+        // Apply transformHeader if provided
+        if (config.transformHeader) {
+          headers = headers.map(config.transformHeader);
+        }
+
+        return {
+          meta: { fields: headers },
+          data: [],
+        };
+      }),
+    };
+
     // Clear module cache and re-require
     delete require.cache[require.resolve("../src/config_matcher.js")];
     ConfigMatcher = require("../src/config_matcher.js");
