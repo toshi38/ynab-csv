@@ -208,6 +208,38 @@ describe("ConfigMatcher", () => {
 
       expect(fp1).not.toBe(fp2);
     });
+
+    test("should return null when all headers are empty after filtering", () => {
+      const headers = ["", "   ", "\t"];
+      const fp = ConfigMatcher.generateFingerprint(headers);
+
+      expect(fp).toBeNull();
+    });
+  });
+
+  describe("jaccardSimilarity internal function", () => {
+    test("should return 100 for two empty sets when matching empty headers against empty originalHeaders", () => {
+      // Set up a config with empty originalHeaders and chosenColumns
+      const storedData = {
+        configs: {
+          fp_123: {
+            id: "fp_123",
+            name: "Empty Config",
+            chosenColumns: {},
+            originalHeaders: [],
+          },
+        },
+      };
+      mockStore.knownConfigurations = JSON.stringify(storedData);
+
+      // Match with empty headers - both sets become empty, which returns 100 similarity
+      const match = ConfigMatcher.findMatchingConfig([], "test.csv");
+
+      // Should get a partial match with 100% confidence (two empty sets are considered identical)
+      expect(match).not.toBeNull();
+      expect(match.matchType).toBe("partial");
+      expect(match.confidence).toBe(100);
+    });
   });
 
   // ============================================
@@ -379,6 +411,36 @@ describe("ConfigMatcher", () => {
       const headers = ConfigMatcher.extractHeadersFromContent(content);
 
       expect(headers).toEqual(["Date", "Description", "Amount"]);
+    });
+
+    test("should handle duplicate headers by adding suffix", () => {
+      const content = "Date,Amount,Date,Amount\n2024-01-01,-50,2024-01-02,-100";
+      const headers = ConfigMatcher.extractHeadersFromContent(content);
+
+      // Should have renamed duplicates
+      expect(headers).toContain("Date");
+      expect(headers).toContain("Amount");
+      expect(headers).toContain("Date (1)");
+      expect(headers).toContain("Amount (1)");
+    });
+
+    test("should handle empty headers by naming them 'Unnamed column'", () => {
+      const content = "Date,,Amount\n2024-01-01,value,-50";
+      const headers = ConfigMatcher.extractHeadersFromContent(content);
+
+      expect(headers).toContain("Date");
+      expect(headers).toContain("Unnamed column");
+      expect(headers).toContain("Amount");
+    });
+
+    test("should handle multiple empty headers with suffix", () => {
+      const content = "Date,,,Amount\n2024-01-01,a,b,-50";
+      const headers = ConfigMatcher.extractHeadersFromContent(content);
+
+      expect(headers).toContain("Date");
+      expect(headers).toContain("Unnamed column");
+      expect(headers).toContain("Unnamed column (1)");
+      expect(headers).toContain("Amount");
     });
 
     test("should extract headers from real test files", () => {
@@ -621,6 +683,117 @@ describe("ConfigMatcher", () => {
       expect(result).toBe(true);
       const savedData = JSON.parse(mockStore.knownConfigurations);
       expect(savedData.configs.fp_123.name).toBe("New Name");
+    });
+  });
+
+  describe("incrementUsageCount", () => {
+    test("should increment usage count for existing config", () => {
+      const storedData = {
+        configs: {
+          fp_123: { id: "fp_123", name: "Test", useCount: 5 },
+        },
+      };
+      mockStore.knownConfigurations = JSON.stringify(storedData);
+
+      const result = ConfigMatcher.incrementUsageCount("fp_123");
+
+      expect(result).toBe(true);
+      const savedData = JSON.parse(mockStore.knownConfigurations);
+      expect(savedData.configs.fp_123.useCount).toBe(6);
+      expect(savedData.configs.fp_123.lastUsed).toBeDefined();
+    });
+
+    test("should return false for non-existent config", () => {
+      const result = ConfigMatcher.incrementUsageCount("fp_nonexistent");
+
+      expect(result).toBe(false);
+    });
+
+    test("should initialize useCount if not present", () => {
+      const storedData = {
+        configs: {
+          fp_123: { id: "fp_123", name: "Test" },
+        },
+      };
+      mockStore.knownConfigurations = JSON.stringify(storedData);
+
+      ConfigMatcher.incrementUsageCount("fp_123");
+
+      const savedData = JSON.parse(mockStore.knownConfigurations);
+      expect(savedData.configs.fp_123.useCount).toBe(1);
+    });
+  });
+
+  // ============================================
+  // Error Handling Tests
+  // ============================================
+
+  describe("error handling", () => {
+    test("should handle invalid JSON in localStorage gracefully", () => {
+      mockStore.knownConfigurations = "invalid json {{{";
+      global.console.warn = jest.fn();
+
+      const configs = ConfigMatcher.getAllConfigurations();
+
+      expect(configs).toEqual({});
+      expect(global.console.warn).toHaveBeenCalledWith(
+        "ConfigMatcher: Failed to parse stored configs",
+        expect.any(Error),
+      );
+
+      delete global.console.warn;
+    });
+
+    test("should handle localStorage without configs property", () => {
+      mockStore.knownConfigurations = JSON.stringify({ notConfigs: {} });
+
+      const configs = ConfigMatcher.getAllConfigurations();
+
+      expect(configs).toEqual({});
+    });
+
+    test("should handle localStorage setItem failure", () => {
+      global.console.warn = jest.fn();
+
+      // Make setItem throw an error (simulating quota exceeded)
+      global.localStorage.setItem.mockImplementation(() => {
+        throw new Error("QuotaExceededError");
+      });
+
+      const headers = ["Date", "Amount"];
+      const result = ConfigMatcher.saveConfiguration(headers, "test.csv", {
+        columnFormat: [],
+        chosenColumns: {},
+      });
+
+      expect(result).toBeNull();
+      expect(global.console.warn).toHaveBeenCalledWith(
+        "ConfigMatcher: Failed to save configs",
+        expect.any(Error),
+      );
+
+      delete global.console.warn;
+    });
+
+    test("should handle PapaParse errors gracefully", () => {
+      global.console.error = jest.fn();
+
+      // Make Papa.parse throw an error
+      global.Papa.parse.mockImplementation(() => {
+        throw new Error("Parse error");
+      });
+
+      const headers = ConfigMatcher.extractHeadersFromContent(
+        "Date,Amount\n2024-01-01,-50",
+      );
+
+      expect(headers).toEqual([]);
+      expect(global.console.error).toHaveBeenCalledWith(
+        "Error parsing headers:",
+        expect.any(Error),
+      );
+
+      delete global.console.error;
     });
   });
 

@@ -1466,6 +1466,291 @@ describe("ParseController", () => {
       });
     });
 
+    describe("tryAutoApplyConfigForExcel", () => {
+      beforeEach(() => {
+        $scope.data_object.fields.mockReturnValue([
+          "Date",
+          "Description",
+          "Amount",
+        ]);
+        $scope.data_object.base_json = [{ Date: "2024-01-01" }];
+        $scope.filename = "test.xlsx";
+        $scope.reparseFile = jest.fn();
+      });
+
+      test("should return early if data_object is not available", () => {
+        $scope.data_object = null;
+
+        $scope.tryAutoApplyConfigForExcel();
+
+        expect(global.ConfigMatcher.findMatchingConfig).not.toHaveBeenCalled();
+      });
+
+      test("should return early if headers are empty", () => {
+        $scope.data_object.fields.mockReturnValue([]);
+
+        $scope.tryAutoApplyConfigForExcel();
+
+        expect(global.ConfigMatcher.findMatchingConfig).not.toHaveBeenCalled();
+      });
+
+      test("should auto-apply high confidence match with same startAtRow", () => {
+        const mockConfig = {
+          id: "excel-config",
+          columnFormat: ["Date", "Payee", "Memo", "Amount"],
+          chosenColumns: { Date: "Date" },
+          startAtRow: 1,
+        };
+
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+          configId: "excel-config",
+          matchType: "exact",
+          confidence: 100,
+          config: mockConfig,
+        });
+
+        $scope.file.startAtRow = 1;
+
+        $scope.tryAutoApplyConfigForExcel();
+
+        expect($scope.matchedConfig).toBeDefined();
+        expect($scope.autoApplied).toBe(true);
+        expect($scope.reparseFile).not.toHaveBeenCalled();
+      });
+
+      test("should re-parse when matched config has different startAtRow", () => {
+        const mockConfig = {
+          id: "excel-config",
+          columnFormat: ["Date", "Payee", "Memo", "Amount"],
+          chosenColumns: { Date: "Date" },
+          startAtRow: 3,
+        };
+
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+          configId: "excel-config",
+          matchType: "exact",
+          confidence: 100,
+          config: mockConfig,
+        });
+
+        $scope.file.startAtRow = 1;
+
+        $scope.tryAutoApplyConfigForExcel();
+
+        expect($scope.reparseFile).toHaveBeenCalled();
+        expect($scope.file.startAtRow).toBe(3);
+        expect($scope.autoApplied).toBe(true);
+      });
+
+      test("should store medium confidence match without auto-applying", () => {
+        const mockConfig = {
+          id: "excel-config",
+          columnFormat: ["Date", "Payee", "Memo", "Amount"],
+          chosenColumns: { Date: "Date" },
+        };
+
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue({
+          configId: "excel-config",
+          matchType: "partial",
+          confidence: 70,
+          config: mockConfig,
+        });
+
+        $scope.tryAutoApplyConfigForExcel();
+
+        expect($scope.matchedConfig).toBeDefined();
+        expect($scope.autoApplied).toBe(false);
+      });
+
+      test("should try different startAtRow values from saved configs", () => {
+        // First match returns low confidence
+        global.ConfigMatcher.findMatchingConfig
+          .mockReturnValueOnce(null)
+          .mockReturnValueOnce({
+            configId: "found-config",
+            matchType: "exact",
+            confidence: 100,
+            config: {
+              columnFormat: ["Date", "Payee", "Memo", "Amount"],
+              startAtRow: 3,
+            },
+          });
+
+        // Saved configs with different startAtRow values
+        global.ConfigMatcher.getAllConfigurations.mockReturnValue({
+          "config-1": { startAtRow: 1 },
+          "config-2": { startAtRow: 3 },
+        });
+
+        $scope.file.startAtRow = 1;
+
+        $scope.tryAutoApplyConfigForExcel();
+
+        expect($scope.reparseFile).toHaveBeenCalled();
+        expect($scope.autoApplied).toBe(true);
+      });
+
+      test("should reset to profile default when no match found after trying all rows", () => {
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue(null);
+        global.ConfigMatcher.getAllConfigurations.mockReturnValue({
+          "config-1": { startAtRow: 2 },
+        });
+
+        $scope.file.startAtRow = 1;
+        $scope.profile.startAtRow = 1;
+
+        $scope.tryAutoApplyConfigForExcel();
+
+        // Should have tried row 2, then reset back to profile default (1)
+        expect($scope.file.startAtRow).toBe(1);
+      });
+
+      test("should skip already tried startAtRow values", () => {
+        global.ConfigMatcher.findMatchingConfig.mockReturnValue(null);
+        global.ConfigMatcher.getAllConfigurations.mockReturnValue({
+          "config-1": { startAtRow: 1 }, // Same as current
+          "config-2": { startAtRow: 1 }, // Duplicate
+        });
+
+        $scope.file.startAtRow = 1;
+        $scope.profile.startAtRow = 1;
+
+        $scope.tryAutoApplyConfigForExcel();
+
+        // Should not call reparseFile since all configs have same startAtRow
+        expect($scope.reparseFile).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("saveConfigWithName", () => {
+      beforeEach(() => {
+        global.prompt = jest.fn();
+        $scope.saveCurrentConfig = jest.fn();
+      });
+
+      afterEach(() => {
+        delete global.prompt;
+      });
+
+      test("should prompt for name and save config", () => {
+        global.prompt.mockReturnValue("My Custom Config");
+
+        $scope.saveConfigWithName();
+
+        expect(global.prompt).toHaveBeenCalled();
+        expect($scope.saveCurrentConfig).toHaveBeenCalledWith(
+          "My Custom Config",
+        );
+      });
+
+      test("should not save if user cancels prompt", () => {
+        global.prompt.mockReturnValue(null);
+
+        $scope.saveConfigWithName();
+
+        expect($scope.saveCurrentConfig).not.toHaveBeenCalled();
+      });
+
+      test("should prevent default event if provided", () => {
+        const mockEvent = { preventDefault: jest.fn() };
+        global.prompt.mockReturnValue("Test");
+
+        $scope.saveConfigWithName(mockEvent);
+
+        expect(mockEvent.preventDefault).toHaveBeenCalled();
+      });
+
+      test("should use matched config name as default when available", () => {
+        $scope.matchedConfig = {
+          config: { name: "Existing Config Name" },
+        };
+        global.prompt.mockReturnValue("New Name");
+
+        $scope.saveConfigWithName();
+
+        expect(global.prompt).toHaveBeenCalledWith(
+          "Enter a name for this configuration:",
+          "Existing Config Name",
+        );
+      });
+
+      test("should use filename as default when no matched config", () => {
+        $scope.matchedConfig = null;
+        $scope.filename = "my_bank_statement.csv";
+        global.prompt.mockReturnValue("New Name");
+
+        $scope.saveConfigWithName();
+
+        expect(global.prompt).toHaveBeenCalledWith(
+          "Enter a name for this configuration:",
+          "my_bank_statement.csv",
+        );
+      });
+    });
+
+    describe("promptRenameConfig", () => {
+      beforeEach(() => {
+        global.prompt = jest.fn();
+        $scope.renameConfig = jest.fn();
+      });
+
+      afterEach(() => {
+        delete global.prompt;
+      });
+
+      test("should prompt for new name and rename config", () => {
+        global.ConfigMatcher.getConfiguration.mockReturnValue({
+          name: "Old Name",
+        });
+        global.prompt.mockReturnValue("New Name");
+
+        $scope.promptRenameConfig("config-id");
+
+        expect(global.ConfigMatcher.getConfiguration).toHaveBeenCalledWith(
+          "config-id",
+        );
+        expect(global.prompt).toHaveBeenCalledWith(
+          "Enter a new name:",
+          "Old Name",
+        );
+        expect($scope.renameConfig).toHaveBeenCalledWith(
+          "config-id",
+          "New Name",
+        );
+      });
+
+      test("should not rename if config not found", () => {
+        global.ConfigMatcher.getConfiguration.mockReturnValue(null);
+
+        $scope.promptRenameConfig("nonexistent-id");
+
+        expect(global.prompt).not.toHaveBeenCalled();
+        expect($scope.renameConfig).not.toHaveBeenCalled();
+      });
+
+      test("should not rename if user cancels prompt", () => {
+        global.ConfigMatcher.getConfiguration.mockReturnValue({
+          name: "Old Name",
+        });
+        global.prompt.mockReturnValue(null);
+
+        $scope.promptRenameConfig("config-id");
+
+        expect($scope.renameConfig).not.toHaveBeenCalled();
+      });
+
+      test("should not rename if new name is same as old name", () => {
+        global.ConfigMatcher.getConfiguration.mockReturnValue({
+          name: "Same Name",
+        });
+        global.prompt.mockReturnValue("Same Name");
+
+        $scope.promptRenameConfig("config-id");
+
+        expect($scope.renameConfig).not.toHaveBeenCalled();
+      });
+    });
+
     describe("downloadFile auto-save", () => {
       beforeEach(() => {
         const mockAnchor = {
