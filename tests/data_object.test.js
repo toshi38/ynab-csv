@@ -246,6 +246,64 @@ describe("DataObject", () => {
       });
     });
 
+    test("should invert Amount sign when inverted_amount is true", () => {
+      const ynab_cols = ["Date", "Payee", "Memo", "Amount"];
+      const lookup = {
+        Date: "Date",
+        Payee: "Description",
+        Memo: "Notes",
+        Amount: "Amount",
+      };
+
+      // inverted_outflow = false, inverted_amount = true
+      const result = dataObject.converted_json(
+        null,
+        ynab_cols,
+        lookup,
+        false,
+        true,
+      );
+
+      // Negative becomes positive
+      expect(result[0]).toEqual({
+        Date: "2024-01-01",
+        Payee: "Purchase",
+        Memo: "Groceries",
+        Amount: "50.00", // was "-50.00"
+      });
+      // Positive becomes negative
+      expect(result[1]).toEqual({
+        Date: "2024-01-02",
+        Payee: "Salary",
+        Memo: "Monthly pay",
+        Amount: "-1000.00", // was "1000.00"
+      });
+      expect(result[2]).toEqual({
+        Date: "2024-01-03",
+        Payee: "Refund",
+        Memo: "Return",
+        Amount: "-25.50", // was "25.50"
+      });
+    });
+
+    test("should not invert Amount sign when inverted_amount is false", () => {
+      const ynab_cols = ["Date", "Payee", "Memo", "Amount"];
+      const lookup = {
+        Date: "Date",
+        Payee: "Description",
+        Memo: "Notes",
+        Amount: "Amount",
+      };
+
+      // inverted_outflow = false, inverted_amount = false (default)
+      const result = dataObject.converted_json(null, ynab_cols, lookup, false);
+
+      // Values should remain unchanged
+      expect(result[0].Amount).toBe("-50.00");
+      expect(result[1].Amount).toBe("1000.00");
+      expect(result[2].Amount).toBe("25.50");
+    });
+
     test("should respect limit parameter for preview", () => {
       const ynab_cols = ["Date", "Payee", "Memo", "Amount"];
       const lookup = {

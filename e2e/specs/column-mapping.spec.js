@@ -164,4 +164,91 @@ test.describe("Column Mapping", () => {
     // Unmapped columns should be empty (dots may be visual placeholders via CSS)
     expect(previewData[0][1].trim()).toBe(""); // Payee should be empty
   });
+
+  test("inverts amount sign when using new YNAB format", async ({ page }) => {
+    // Switch to new format (Amount column)
+    const amountColumnExists = await page
+      .locator('[data-testid="column-header-Amount"]')
+      .isVisible();
+
+    if (!amountColumnExists) {
+      // Toggle to new format if not already there
+      await ynabPage.toggleFormatButton.click();
+      await expect(
+        page.locator('[data-testid="column-header-Amount"]'),
+      ).toBeVisible();
+    }
+
+    // Map columns
+    await ynabPage.setColumnMapping("Date", "Transaction Date");
+    await ynabPage.setColumnMapping("Payee", "Description");
+    await ynabPage.setColumnMapping("Amount", "Balance");
+
+    // Get initial preview data
+    const initialData = await ynabPage.getPreviewData();
+    const initialAmountColumn = initialData.map((row) => row[3]); // Amount is 4th column in new format
+
+    // Invert amount button should be visible
+    await expect(ynabPage.invertAmountButton).toBeVisible();
+
+    // Click invert amount button
+    await ynabPage.invertAmountButton.click();
+
+    // Get updated preview data
+    const invertedData = await ynabPage.getPreviewData();
+    const invertedAmountColumn = invertedData.map((row) => row[3]);
+
+    // Data should be different after inversion
+    expect(invertedAmountColumn).not.toEqual(initialAmountColumn);
+
+    // Verify signs are actually inverted
+    // Initial positive becomes negative, initial negative becomes positive
+    for (let i = 0; i < initialAmountColumn.length; i++) {
+      const initial = initialAmountColumn[i].trim();
+      const inverted = invertedAmountColumn[i].trim();
+
+      if (initial && inverted) {
+        if (initial.startsWith("-")) {
+          // Negative becomes positive
+          expect(inverted.startsWith("-")).toBe(false);
+        } else {
+          // Positive becomes negative
+          expect(inverted.startsWith("-")).toBe(true);
+        }
+      }
+    }
+  });
+
+  test("invert amount button only visible in new YNAB format", async ({
+    page,
+  }) => {
+    // Check if we're in old format (Inflow/Outflow)
+    const outflowExists = await page
+      .locator('[data-testid="column-header-Outflow"]')
+      .isVisible();
+
+    if (outflowExists) {
+      // In old format - invert amount button should NOT be visible
+      await expect(ynabPage.invertAmountButton).not.toBeVisible();
+
+      // Toggle to new format
+      await ynabPage.toggleFormatButton.click();
+
+      // Map Amount column to make invert amount button appear
+      await ynabPage.setColumnMapping("Amount", "Balance");
+
+      // Now invert amount button should be visible
+      await expect(ynabPage.invertAmountButton).toBeVisible();
+    } else {
+      // Already in new format - invert amount button should be visible
+      await ynabPage.setColumnMapping("Amount", "Balance");
+      await expect(ynabPage.invertAmountButton).toBeVisible();
+
+      // Toggle to old format
+      await ynabPage.toggleFormatButton.click();
+
+      // Now invert amount button should NOT be visible
+      await expect(ynabPage.invertAmountButton).not.toBeVisible();
+    }
+  });
 });

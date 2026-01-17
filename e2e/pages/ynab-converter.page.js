@@ -33,6 +33,9 @@ export class YnabConverterPage {
     this.invertFlowsButton = page.locator(
       '[data-testid="invert-flows-button"]',
     );
+    this.invertAmountButton = page.locator(
+      '[data-testid="invert-amount-button"]',
+    );
     this.toggleFormatButton = page.locator(
       '[data-testid="toggle-format-button"]',
     );

@@ -295,6 +295,14 @@
                   <i class="fa fa-exchange"></i> Invert flows
                 </div>
                 <div
+                  ng-show="ynab_cols.indexOf('Amount') != -1"
+                  class="btn btn-outline-secondary"
+                  ng-click="invert_amount()"
+                  data-testid="invert-amount-button"
+                >
+                  <i class="fa fa-exchange"></i> Invert amount
+                </div>
+                <div
                   class="btn btn-outline-secondary"
                   ng-click="toggleColumnFormat()"
                   data-testid="toggle-format-button"

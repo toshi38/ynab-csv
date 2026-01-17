@@ -178,7 +178,14 @@ window.DataObject = class DataObject {
   // lookup: hash definition of YNAB column names to selected base column names. Lets us
   //     convert the uploaded CSV file into the columns that YNAB expects.
   // inverted_outflow: if true, positive values represent outflow while negative values represent inflow
-  converted_json(limit, ynab_cols, lookup, inverted_outflow = false) {
+  // inverted_amount: if true, flip the sign on Amount values (positive becomes negative, negative becomes positive)
+  converted_json(
+    limit,
+    ynab_cols,
+    lookup,
+    inverted_outflow = false,
+    inverted_amount = false,
+  ) {
     var value;
     if (this.base_json === null) {
       return null;
@@ -219,6 +226,16 @@ window.DataObject = class DataObject {
                     tmp_row[col] = cell.startsWith("-") ? cell.slice(1) : cell;
                   }
                   break;
+                case "Amount":
+                  if (inverted_amount) {
+                    // Flip sign: remove "-" if negative, add "-" if positive
+                    tmp_row[col] = cell.startsWith("-")
+                      ? cell.slice(1)
+                      : "-" + cell;
+                  } else {
+                    tmp_row[col] = cell;
+                  }
+                  break;
                 default:
                   tmp_row[col] = cell;
               }
@@ -231,27 +248,31 @@ window.DataObject = class DataObject {
     return value;
   }
 
-  converted_csv(limit, ynab_cols, lookup, inverted_outflow) {
+  converted_csv(limit, ynab_cols, lookup, inverted_outflow, inverted_amount) {
     var string;
     if (this.base_json === null) {
       return nil;
     }
     // Papa.unparse string
     string = '"' + ynab_cols.join('","') + '"\n';
-    this.converted_json(limit, ynab_cols, lookup, inverted_outflow).forEach(
-      function (row) {
-        var row_values;
-        row_values = [];
-        ynab_cols.forEach(function (col) {
-          var row_value;
-          row_value = row[col] || "";
-          // escape text which might already have a quote in it
-          row_value = row_value.replace(/"/g, '""').trim();
-          return row_values.push(row_value);
-        });
-        return (string += '"' + row_values.join('","') + '"\n');
-      },
-    );
+    this.converted_json(
+      limit,
+      ynab_cols,
+      lookup,
+      inverted_outflow,
+      inverted_amount,
+    ).forEach(function (row) {
+      var row_values;
+      row_values = [];
+      ynab_cols.forEach(function (col) {
+        var row_value;
+        row_value = row[col] || "";
+        // escape text which might already have a quote in it
+        row_value = row_value.replace(/"/g, '""').trim();
+        return row_values.push(row_value);
+      });
+      return (string += '"' + row_values.join('","') + '"\n');
+    });
     return string;
   }
 };
