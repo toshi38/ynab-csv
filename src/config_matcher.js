@@ -147,50 +147,51 @@ var ConfigMatcher = (function () {
 
     startAtRow = startAtRow || 1;
 
-    // Split into lines, handling different line endings
-    var lines = content.split(/\r\n|\n|\r/);
+    // Use PapaParse with same transformHeader logic as data_object.js
+    // This ensures headers match what gets saved in configs
+    var existingHeaders = [];
+    var config = {
+      header: true,
+      skipEmptyLines: true,
+      preview: 1, // Only parse first row for headers
+      beforeFirstChunk: function (chunk) {
+        var rows = chunk.split("\n");
+        var startIndex = startAtRow - 1;
+        rows = rows.slice(startIndex);
+        return rows.join("\n");
+      },
+      transformHeader: function (header) {
+        if (header.trim().length === 0) {
+          header = "Unnamed column";
+        }
+        if (existingHeaders.indexOf(header) !== -1) {
+          var newHeader = header;
+          var counter = 0;
+          while (existingHeaders.indexOf(newHeader) !== -1) {
+            counter++;
+            newHeader = header + " (" + counter + ")";
+          }
+          header = newHeader;
+        }
+        existingHeaders.push(header);
+        return header;
+      },
+    };
 
-    // Get the header row (1-indexed, so subtract 1)
-    var headerRowIndex = startAtRow - 1;
-    if (headerRowIndex < 0 || headerRowIndex >= lines.length) {
-      return [];
+    if (delimiter && delimiter !== "auto") {
+      config.delimiter = delimiter;
     }
 
-    var headerLine = lines[headerRowIndex];
-
-    // Remove BOM if present
-    if (headerLine.charCodeAt(0) === 0xfeff) {
-      headerLine = headerLine.substring(1);
-    }
-
-    // Auto-detect delimiter if not provided
-    if (!delimiter || delimiter === "auto") {
-      // Count occurrences of common delimiters
-      var commaCount = (headerLine.match(/,/g) || []).length;
-      var semicolonCount = (headerLine.match(/;/g) || []).length;
-      var tabCount = (headerLine.match(/\t/g) || []).length;
-      var pipeCount = (headerLine.match(/\|/g) || []).length;
-
-      var maxCount = Math.max(commaCount, semicolonCount, tabCount, pipeCount);
-      if (maxCount === 0) {
-        delimiter = ","; // Default
-      } else if (semicolonCount === maxCount) {
-        delimiter = ";";
-      } else if (tabCount === maxCount) {
-        delimiter = "\t";
-      } else if (pipeCount === maxCount) {
-        delimiter = "|";
-      } else {
-        delimiter = ",";
+    try {
+      var result = Papa.parse(content, config);
+      if (result && result.meta && result.meta.fields) {
+        return result.meta.fields;
       }
+    } catch (e) {
+      console.error("Error parsing headers:", e);
     }
 
-    // Split by delimiter (basic - doesn't handle quoted fields with delimiters)
-    var headers = headerLine.split(delimiter).map(function (h) {
-      return h.trim().replace(/^["']|["']$/g, ""); // Remove surrounding quotes
-    });
-
-    return headers;
+    return [];
   }
 
   // ============================================

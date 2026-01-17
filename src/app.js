@@ -445,11 +445,50 @@ angular.element(document).ready(function () {
 
       // Try to auto-apply a matching configuration
       $scope.tryAutoApplyConfig = function () {
-        if (!$scope.data_object || !$scope.data_object.base_json) {
+        if (!$scope.data || !$scope.data.source || !$scope.data.source.data) {
+          return;
+        }
+
+        // Use findMatchingConfigWithStartRow to try multiple header rows
+        var match = ConfigMatcher.findMatchingConfigWithStartRow(
+          $scope.data.source.data,
+          $scope.filename,
+          $scope.file.chosenDelimiter === "auto"
+            ? null
+            : $scope.file.chosenDelimiter,
+        );
+
+        if (match && match.confidence >= 60) {
+          $scope.matchedConfig = match;
+
+          // Auto-apply if confidence is high enough
+          if (match.confidence >= 80) {
+            // Re-parse if startAtRow differs from current setting
+            var detectedRow =
+              match.detectedStartAtRow || match.config.startAtRow;
+            if (detectedRow && detectedRow !== $scope.file.startAtRow) {
+              $scope.file.startAtRow = detectedRow;
+              $scope.reparseFile();
+            }
+            $scope.applyConfig(match.config);
+            $scope.autoApplied = true;
+          }
+        }
+      };
+
+      // Try to auto-apply config for Excel files using already-parsed headers
+      // (Excel binary data can't be pre-parsed like CSV text)
+      $scope.tryAutoApplyConfigForExcel = function () {
+        if (!$scope.data_object || !$scope.data_object.fields) {
           return;
         }
 
         var headers = $scope.data_object.fields();
+        if (!headers || headers.length === 0) {
+          return;
+        }
+
+        // Try matching with current parsed headers
         var match = ConfigMatcher.findMatchingConfig(headers, $scope.filename);
 
         if (match && match.confidence >= 60) {
@@ -457,9 +496,55 @@ angular.element(document).ready(function () {
 
           // Auto-apply if confidence is high enough
           if (match.confidence >= 80) {
+            var configStartAtRow = match.config.startAtRow || 1;
+
+            // If the matched config has a different startAtRow, we need to re-parse
+            if (configStartAtRow !== $scope.file.startAtRow) {
+              $scope.file.startAtRow = configStartAtRow;
+              $scope.reparseFile();
+            }
+
             $scope.applyConfig(match.config);
             $scope.autoApplied = true;
+            return;
           }
+        }
+
+        // No high-confidence match with current startAtRow
+        // Try other saved startAtRow values
+        var allConfigs = ConfigMatcher.getAllConfigurations();
+        var triedRows = new Set([$scope.file.startAtRow]);
+
+        for (var configId in allConfigs) {
+          var config = allConfigs[configId];
+          var configRow = config.startAtRow || 1;
+
+          if (triedRows.has(configRow)) {
+            continue;
+          }
+          triedRows.add(configRow);
+
+          // Re-parse with this startAtRow
+          $scope.file.startAtRow = configRow;
+          $scope.reparseFile();
+
+          // Try matching again with new headers
+          headers = $scope.data_object.fields();
+          match = ConfigMatcher.findMatchingConfig(headers, $scope.filename);
+
+          if (match && match.confidence >= 80) {
+            $scope.matchedConfig = match;
+            $scope.applyConfig(match.config);
+            $scope.autoApplied = true;
+            return;
+          }
+        }
+
+        // No match found - reset to profile default if we changed it
+        var profileStartAtRow = $scope.profile.startAtRow || 1;
+        if ($scope.file.startAtRow !== profileStartAtRow) {
+          $scope.file.startAtRow = profileStartAtRow;
+          $scope.reparseFile();
         }
       };
 
@@ -650,9 +735,56 @@ angular.element(document).ready(function () {
             $scope.currentFilename = newValue.filename;
             $scope.filename = newValue.filename;
 
+            // Reset auto-match state first
+            $scope.matchedConfig = null;
+            $scope.autoApplied = false;
+
+            // Use profile defaults as baseline for matching, but preserve current
+            // file settings if no match is found
+            var profileStartAtRow = $scope.profile.startAtRow || 1;
+            var profileDelimiter = $scope.profile.chosenDelimiter || "auto";
+
+            // Try to find matching config BEFORE parsing (handles different startAtRow)
+            // Only for CSV files - Excel requires parsing first
+            if (!$scope.data_object.isExcelFile(newValue.filename)) {
+              var match = ConfigMatcher.findMatchingConfigWithStartRow(
+                newValue.data,
+                newValue.filename,
+                profileDelimiter === "auto" ? null : profileDelimiter,
+              );
+
+              if (match && match.confidence >= 80) {
+                $scope.matchedConfig = match;
+                // Use detected settings from matching config
+                $scope.file.startAtRow =
+                  match.detectedStartAtRow ||
+                  match.config.startAtRow ||
+                  profileStartAtRow;
+                $scope.file.chosenDelimiter =
+                  match.config.chosenDelimiter || profileDelimiter;
+                $scope.file.chosenEncoding =
+                  match.config.chosenEncoding || $scope.file.chosenEncoding;
+              } else {
+                // No match found - reset to profile defaults for fresh file
+                $scope.file.startAtRow = profileStartAtRow;
+                // Keep current delimiter if explicitly set, otherwise use profile
+                if (
+                  $scope.file.chosenDelimiter === "auto" ||
+                  !$scope.file.chosenDelimiter
+                ) {
+                  $scope.file.chosenDelimiter = profileDelimiter;
+                }
+              }
+            }
+
             // Process file based on type
             if ($scope.data_object.isExcelFile(newValue.filename)) {
-              // Parse as Excel file
+              // For Excel files, reset to profile defaults BEFORE parsing
+              // (we can't pre-detect headers from binary Excel data)
+              $scope.file.startAtRow = profileStartAtRow;
+              $scope.file.chosenDelimiter = profileDelimiter;
+
+              // Parse as Excel file with profile defaults
               $scope.data_object.parseExcel(
                 newValue.data,
                 newValue.filename,
@@ -673,8 +805,11 @@ angular.element(document).ready(function () {
                 $scope.file.selectedWorksheet = 0; // Default to first worksheet (index 0)
                 $scope.$evalAsync();
               }
+
+              // For Excel files, try auto-matching after parsing using parsed headers
+              $scope.tryAutoApplyConfigForExcel();
             } else {
-              // Parse as CSV file
+              // Parse as CSV file with detected settings
               if ($scope.file.chosenDelimiter == "auto") {
                 $scope.data_object.parseCsv(
                   newValue.data,
@@ -691,6 +826,15 @@ angular.element(document).ready(function () {
                   $scope.file.chosenDelimiter,
                 );
               }
+
+              // Apply matched config after parsing (for CSV)
+              if (
+                $scope.matchedConfig &&
+                $scope.matchedConfig.confidence >= 80
+              ) {
+                $scope.applyConfig($scope.matchedConfig.config);
+                $scope.autoApplied = true;
+              }
             }
 
             $scope.preview = $scope.data_object.converted_json(
@@ -699,11 +843,6 @@ angular.element(document).ready(function () {
               $scope.ynab_map,
               $scope.inverted_outflow,
             );
-
-            // Reset auto-match state and try to find matching config
-            $scope.matchedConfig = null;
-            $scope.autoApplied = false;
-            $scope.tryAutoApplyConfig();
           } catch (error) {
             console.error("Error parsing file:", error);
             alert("Error parsing file: " + error.message);
