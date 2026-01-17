@@ -190,6 +190,16 @@ describe("ParseController", () => {
       expect($scope.inverted_outflow).toBe(false);
     });
 
+    test("should invert amount when toggle is called", () => {
+      expect($scope.inverted_amount).toBe(false);
+
+      $scope.invert_amount();
+      expect($scope.inverted_amount).toBe(true);
+
+      $scope.invert_amount();
+      expect($scope.inverted_amount).toBe(false);
+    });
+
     test("should reset app state when reloadApp is called", () => {
       $scope.setInitialScopeState = jest.fn();
       $scope.reloadApp();
@@ -249,6 +259,7 @@ describe("ParseController", () => {
         $scope.ynab_cols,
         $scope.ynab_map,
         $scope.inverted_outflow,
+        $scope.inverted_amount,
       );
     });
 
@@ -318,6 +329,40 @@ describe("ParseController", () => {
         $scope.ynab_cols,
         $scope.ynab_map,
         $scope.inverted_outflow,
+        $scope.inverted_amount,
+      );
+    });
+
+    test("should update preview when inverted_amount changes", () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require("../src/app.js");
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(
+        (call) => call[0] === "ParseController",
+      );
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Set initial inverted_amount to false
+      $scope.inverted_amount = false;
+
+      // Simulate inverted amount change - the watch callback should update preview
+      $scope.inverted_amount = true;
+      watchCallbacks["inverted_amount"](true, false);
+
+      expect($scope.data_object.converted_json).toHaveBeenCalledWith(
+        10,
+        $scope.ynab_cols,
+        $scope.ynab_map,
+        $scope.inverted_outflow,
+        $scope.inverted_amount,
       );
     });
 
@@ -348,6 +393,7 @@ describe("ParseController", () => {
         $scope.ynab_cols,
         newMapping,
         $scope.inverted_outflow,
+        $scope.inverted_amount,
       );
     });
 
@@ -363,6 +409,7 @@ describe("ParseController", () => {
         $scope.ynab_cols,
         $scope.ynab_map,
         $scope.inverted_outflow,
+        $scope.inverted_amount,
       );
       expect(result).toBe("Date,Payee,Amount\n2024-01-01,Store,-50.00");
     });
@@ -452,6 +499,7 @@ describe("ParseController", () => {
         $scope.ynab_cols,
         $scope.ynab_map,
         $scope.inverted_outflow,
+        $scope.inverted_amount,
       );
     });
 
@@ -584,6 +632,7 @@ describe("ParseController", () => {
         $scope.ynab_cols,
         $scope.ynab_map,
         $scope.inverted_outflow,
+        $scope.inverted_amount,
       );
 
       // Verify worksheet initialization
@@ -869,6 +918,7 @@ describe("ParseController", () => {
         $scope.ynab_cols,
         $scope.ynab_map,
         $scope.inverted_outflow,
+        $scope.inverted_amount,
       );
 
       // Verify settings were saved
@@ -1251,6 +1301,7 @@ describe("ParseController", () => {
           startAtRow: 3,
           extraRow: true,
           invertedOutflow: true,
+          invertedAmount: true,
         };
 
         $scope.matchedConfig = { configId: "test-id" };
@@ -1267,6 +1318,7 @@ describe("ParseController", () => {
         expect($scope.file.startAtRow).toBe(3);
         expect($scope.file.extraRow).toBe(true);
         expect($scope.inverted_outflow).toBe(true);
+        expect($scope.inverted_amount).toBe(true);
         expect(global.ConfigMatcher.incrementUsageCount).toHaveBeenCalledWith(
           "test-id",
         );
@@ -1313,6 +1365,7 @@ describe("ParseController", () => {
         $scope.file.startAtRow = 1;
         $scope.file.extraRow = false;
         $scope.inverted_outflow = false;
+        $scope.inverted_amount = false;
 
         const result = $scope.saveCurrentConfig("My Config");
 
@@ -1328,6 +1381,7 @@ describe("ParseController", () => {
             startAtRow: 1,
             extraRow: false,
             invertedOutflow: false,
+            invertedAmount: false,
           },
           "My Config",
         );

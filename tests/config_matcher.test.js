@@ -486,6 +486,7 @@ describe("ConfigMatcher", () => {
         startAtRow: 1,
         extraRow: false,
         invertedOutflow: false,
+        invertedAmount: false,
       };
 
       const configId = ConfigMatcher.saveConfiguration(
@@ -497,6 +498,22 @@ describe("ConfigMatcher", () => {
       expect(configId).toBeTruthy();
       expect(configId).toMatch(/^fp_[a-z0-9]+$/);
       expect(global.localStorage.setItem).toHaveBeenCalled();
+    });
+
+    test("should persist invertedAmount setting", () => {
+      const headers = ["Date", "Description", "Amount"];
+      const settings = {
+        columnFormat: ["Date", "Payee", "Memo", "Amount"],
+        chosenColumns: { Date: "Date", Payee: "Description", Amount: "Amount" },
+        invertedAmount: true,
+      };
+
+      ConfigMatcher.saveConfiguration(headers, "test.csv", settings);
+
+      const savedData = JSON.parse(mockStore.knownConfigurations);
+      const config = Object.values(savedData.configs)[0];
+
+      expect(config.invertedAmount).toBe(true);
     });
 
     test("should save configuration with custom name", () => {

@@ -486,6 +486,7 @@ var ConfigMatcher = (function () {
       startAtRow: settings.startAtRow || 1,
       extraRow: settings.extraRow || false,
       invertedOutflow: settings.invertedOutflow || false,
+      invertedAmount: settings.invertedAmount || false,
       createdAt: existingConfig ? existingConfig.createdAt : now,
       lastUsed: now,
       useCount: (existingConfig ? existingConfig.useCount : 0) + 1,
