@@ -23,6 +23,7 @@ global.DataObject = jest.fn(() => ({
   converted_csv: jest.fn(),
   fields: jest.fn(() => []),
   rows: jest.fn(() => []),
+  hasShortYearDates: jest.fn(() => false),
   worksheetNames: [],
   currentWorksheet: null,
 }));
@@ -200,6 +201,20 @@ describe("ParseController", () => {
       expect($scope.inverted_amount).toBe(false);
     });
 
+    test("should initialize fix_dates to false", () => {
+      expect($scope.fix_dates).toBe(false);
+    });
+
+    test("should toggle fix_dates when toggle is called", () => {
+      expect($scope.fix_dates).toBe(false);
+
+      $scope.toggle_fix_dates();
+      expect($scope.fix_dates).toBe(true);
+
+      $scope.toggle_fix_dates();
+      expect($scope.fix_dates).toBe(false);
+    });
+
     test("should reset app state when reloadApp is called", () => {
       $scope.setInitialScopeState = jest.fn();
       $scope.reloadApp();
@@ -260,6 +275,7 @@ describe("ParseController", () => {
         $scope.ynab_map,
         $scope.inverted_outflow,
         $scope.inverted_amount,
+        $scope.fix_dates,
       );
     });
 
@@ -330,6 +346,7 @@ describe("ParseController", () => {
         $scope.ynab_map,
         $scope.inverted_outflow,
         $scope.inverted_amount,
+        $scope.fix_dates,
       );
     });
 
@@ -363,6 +380,38 @@ describe("ParseController", () => {
         $scope.ynab_map,
         $scope.inverted_outflow,
         $scope.inverted_amount,
+        $scope.fix_dates,
+      );
+    });
+
+    test("should update preview when fix_dates changes", () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback) => {
+        watchCallbacks[expr] = callback;
+      });
+
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require("../src/app.js");
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(
+        (call) => call[0] === "ParseController",
+      );
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Simulate fix_dates change
+      $scope.fix_dates = true;
+      watchCallbacks["fix_dates"](true, false);
+
+      expect($scope.data_object.converted_json).toHaveBeenCalledWith(
+        10,
+        $scope.ynab_cols,
+        $scope.ynab_map,
+        $scope.inverted_outflow,
+        $scope.inverted_amount,
+        $scope.fix_dates,
       );
     });
 
@@ -394,6 +443,7 @@ describe("ParseController", () => {
         newMapping,
         $scope.inverted_outflow,
         $scope.inverted_amount,
+        $scope.fix_dates,
       );
     });
 
@@ -410,6 +460,7 @@ describe("ParseController", () => {
         $scope.ynab_map,
         $scope.inverted_outflow,
         $scope.inverted_amount,
+        $scope.fix_dates,
       );
       expect(result).toBe("Date,Payee,Amount\n2024-01-01,Store,-50.00");
     });
@@ -500,6 +551,7 @@ describe("ParseController", () => {
         $scope.ynab_map,
         $scope.inverted_outflow,
         $scope.inverted_amount,
+        $scope.fix_dates,
       );
     });
 
@@ -633,6 +685,7 @@ describe("ParseController", () => {
         $scope.ynab_map,
         $scope.inverted_outflow,
         $scope.inverted_amount,
+        $scope.fix_dates,
       );
 
       // Verify worksheet initialization
@@ -919,6 +972,7 @@ describe("ParseController", () => {
         $scope.ynab_map,
         $scope.inverted_outflow,
         $scope.inverted_amount,
+        $scope.fix_dates,
       );
 
       // Verify settings were saved
@@ -1302,6 +1356,7 @@ describe("ParseController", () => {
           extraRow: true,
           invertedOutflow: true,
           invertedAmount: true,
+          fixDates: true,
         };
 
         $scope.matchedConfig = { configId: "test-id" };
@@ -1319,6 +1374,7 @@ describe("ParseController", () => {
         expect($scope.file.extraRow).toBe(true);
         expect($scope.inverted_outflow).toBe(true);
         expect($scope.inverted_amount).toBe(true);
+        expect($scope.fix_dates).toBe(true);
         expect(global.ConfigMatcher.incrementUsageCount).toHaveBeenCalledWith(
           "test-id",
         );
@@ -1382,6 +1438,7 @@ describe("ParseController", () => {
             extraRow: false,
             invertedOutflow: false,
             invertedAmount: false,
+            fixDates: false,
           },
           "My Config",
         );
@@ -1946,6 +2003,123 @@ describe("ParseController", () => {
         expect($scope.matchedConfig).toBeNull();
         expect($scope.autoApplied).toBe(false);
       });
+    });
+  });
+
+  describe("Fix Dates Auto-Detection", () => {
+    test("should auto-enable fix_dates when short year dates detected on file load", () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback, deep) => {
+        watchCallbacks[expr] = callback;
+      });
+
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require("../src/app.js");
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(
+        (call) => call[0] === "ParseController",
+      );
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Set up data object with hasShortYearDates
+      $scope.data_object.hasShortYearDates = jest.fn(() => true);
+      $scope.ynab_map = { Date: "Date", Payee: "Description" };
+
+      // Simulate file data change
+      const csvData = {
+        data: "Date,Description\n01/15/24,Purchase",
+        filename: "test.csv",
+      };
+
+      watchCallbacks["data.source"](csvData, null);
+
+      expect($scope.data_object.hasShortYearDates).toHaveBeenCalledWith("Date");
+      expect($scope.fix_dates).toBe(true);
+    });
+
+    test("should auto-enable fix_dates when Date mapping changes to column with short years", () => {
+      // Set up watchers
+      const watchCallbacks = {};
+      $scope.$watch.mockImplementation((expr, callback, deep) => {
+        watchCallbacks[expr] = callback;
+      });
+
+      // Re-initialize to capture watch callbacks
+      jest.resetModules();
+      require("../src/app.js");
+      const controllerCalls = mockModule.controller.mock.calls;
+      const parseControllerCall = controllerCalls.find(
+        (call) => call[0] === "ParseController",
+      );
+      const controllerFn = parseControllerCall[1];
+      controllerFn($scope, $location);
+
+      // Set up data object with hasShortYearDates
+      $scope.data_object.hasShortYearDates = jest.fn(() => true);
+
+      // Simulate mapping change where Date column changes
+      const newMapping = { Date: "Trans Date", Payee: "Merchant" };
+      const oldMapping = { Date: "Other", Payee: "Merchant" };
+      watchCallbacks["ynab_map"](newMapping, oldMapping);
+
+      expect($scope.data_object.hasShortYearDates).toHaveBeenCalledWith(
+        "Trans Date",
+      );
+      expect($scope.fix_dates).toBe(true);
+    });
+
+    test("should include fixDates in saveCurrentConfig settings", () => {
+      global.ConfigMatcher.saveConfiguration.mockReturnValue("config-id");
+      global.ConfigMatcher.getConfiguration.mockReturnValue({
+        id: "config-id",
+        name: "Test",
+      });
+      global.ConfigMatcher.getAllConfigurations.mockReturnValue({});
+
+      $scope.data_object.base_json = {
+        data: [],
+        meta: { fields: ["Date", "Amount"] },
+      };
+      $scope.data_object.fields = jest.fn(() => ["Date", "Amount"]);
+      $scope.fix_dates = true;
+
+      $scope.saveCurrentConfig("Test");
+
+      expect(global.ConfigMatcher.saveConfiguration).toHaveBeenCalledWith(
+        ["Date", "Amount"],
+        null,
+        expect.objectContaining({
+          fixDates: true,
+        }),
+        "Test",
+      );
+    });
+
+    test("should include fixDates in updateMatchedConfig settings", () => {
+      $scope.matchedConfig = {
+        configId: "existing-id",
+        config: { name: "Old" },
+      };
+
+      global.ConfigMatcher.updateConfiguration.mockReturnValue(true);
+      global.ConfigMatcher.getConfiguration.mockReturnValue({
+        name: "Updated",
+      });
+      global.ConfigMatcher.getAllConfigurations.mockReturnValue({});
+
+      $scope.fix_dates = true;
+
+      $scope.updateMatchedConfig();
+
+      expect(global.ConfigMatcher.updateConfiguration).toHaveBeenCalledWith(
+        "existing-id",
+        expect.objectContaining({
+          fixDates: true,
+        }),
+      );
     });
   });
 });

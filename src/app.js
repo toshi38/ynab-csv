@@ -323,6 +323,7 @@ angular.element(document).ready(function () {
         $scope.ynab_map = $scope.profile.chosenColumns;
         $scope.inverted_outflow = false;
         $scope.inverted_amount = false;
+        $scope.fix_dates = false;
         $scope.file = {
           encodings: encodings,
           delimiters: delimiters,
@@ -415,6 +416,7 @@ angular.element(document).ready(function () {
               $scope.ynab_map,
               $scope.inverted_outflow,
               $scope.inverted_amount,
+              $scope.fix_dates,
             );
 
             // Save settings to profile
@@ -583,6 +585,9 @@ angular.element(document).ready(function () {
         if (typeof config.invertedAmount !== "undefined") {
           $scope.inverted_amount = config.invertedAmount;
         }
+        if (typeof config.fixDates !== "undefined") {
+          $scope.fix_dates = config.fixDates;
+        }
 
         // Update preview
         $scope.preview = $scope.data_object.converted_json(
@@ -591,6 +596,7 @@ angular.element(document).ready(function () {
           $scope.ynab_map,
           $scope.inverted_outflow,
           $scope.inverted_amount,
+          $scope.fix_dates,
         );
 
         // Increment usage count
@@ -615,6 +621,7 @@ angular.element(document).ready(function () {
           extraRow: $scope.file.extraRow,
           invertedOutflow: $scope.inverted_outflow,
           invertedAmount: $scope.inverted_amount,
+          fixDates: $scope.fix_dates,
         };
 
         var configId = ConfigMatcher.saveConfiguration(
@@ -654,6 +661,7 @@ angular.element(document).ready(function () {
             extraRow: $scope.file.extraRow,
             invertedOutflow: $scope.inverted_outflow,
             invertedAmount: $scope.inverted_amount,
+            fixDates: $scope.fix_dates,
           },
         );
 
@@ -845,12 +853,20 @@ angular.element(document).ready(function () {
               }
             }
 
+            // Auto-detect short year dates after file load
+            if ($scope.ynab_map && $scope.ynab_map.Date) {
+              if ($scope.data_object.hasShortYearDates($scope.ynab_map.Date)) {
+                $scope.fix_dates = true;
+              }
+            }
+
             $scope.preview = $scope.data_object.converted_json(
               10,
               $scope.ynab_cols,
               $scope.ynab_map,
               $scope.inverted_outflow,
               $scope.inverted_amount,
+              $scope.fix_dates,
             );
           } catch (error) {
             console.error("Error parsing file:", error);
@@ -866,6 +882,7 @@ angular.element(document).ready(function () {
             $scope.ynab_map,
             $scope.inverted_outflow,
             $scope.inverted_amount,
+            $scope.fix_dates,
           );
         }
       });
@@ -877,6 +894,19 @@ angular.element(document).ready(function () {
             $scope.ynab_map,
             $scope.inverted_outflow,
             $scope.inverted_amount,
+            $scope.fix_dates,
+          );
+        }
+      });
+      $scope.$watch("fix_dates", function (newValue, oldValue) {
+        if (newValue != oldValue) {
+          $scope.preview = $scope.data_object.converted_json(
+            10,
+            $scope.ynab_cols,
+            $scope.ynab_map,
+            $scope.inverted_outflow,
+            $scope.inverted_amount,
+            $scope.fix_dates,
           );
         }
       });
@@ -885,12 +915,26 @@ angular.element(document).ready(function () {
         function (newValue, oldValue) {
           $scope.profile.chosenColumns = newValue;
           localStorage.setItem("profiles", JSON.stringify($scope.profiles));
+          // Auto-detect short year dates when Date mapping changes
+          if (
+            newValue &&
+            newValue.Date &&
+            (!oldValue || newValue.Date !== oldValue.Date)
+          ) {
+            if (
+              $scope.data_object.hasShortYearDates &&
+              $scope.data_object.hasShortYearDates(newValue.Date)
+            ) {
+              $scope.fix_dates = true;
+            }
+          }
           $scope.preview = $scope.data_object.converted_json(
             10,
             $scope.ynab_cols,
             newValue,
             $scope.inverted_outflow,
             $scope.inverted_amount,
+            $scope.fix_dates,
           );
         },
         true,
@@ -902,6 +946,7 @@ angular.element(document).ready(function () {
           $scope.ynab_map,
           $scope.inverted_outflow,
           $scope.inverted_amount,
+          $scope.fix_dates,
         );
       };
       $scope.reloadApp = function () {
@@ -912,6 +957,9 @@ angular.element(document).ready(function () {
       };
       $scope.invert_amount = function () {
         $scope.inverted_amount = !$scope.inverted_amount;
+      };
+      $scope.toggle_fix_dates = function () {
+        $scope.fix_dates = !$scope.fix_dates;
       };
 
       // Handle worksheet selection for Excel files
@@ -947,6 +995,7 @@ angular.element(document).ready(function () {
               $scope.ynab_map,
               $scope.inverted_outflow,
               $scope.inverted_amount,
+              $scope.fix_dates,
             );
             $scope.$evalAsync();
           } catch (error) {
