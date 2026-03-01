@@ -304,6 +304,14 @@
                 </div>
                 <div
                   class="btn btn-outline-secondary"
+                  ng-class="{'active': fix_dates}"
+                  ng-click="toggle_fix_dates()"
+                  data-testid="fix-dates-button"
+                >
+                  <i class="fa fa-calendar"></i> Fix dates
+                </div>
+                <div
+                  class="btn btn-outline-secondary"
                   ng-click="toggleColumnFormat()"
                   data-testid="toggle-format-button"
                 >

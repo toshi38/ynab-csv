@@ -1048,4 +1048,144 @@ describe("DataObject", () => {
       });
     });
   });
+
+  describe("fixTwoDigitYear", () => {
+    test("should convert MM/DD/YY to MM/DD/20YY", () => {
+      expect(DataObject.fixTwoDigitYear("01/15/24")).toBe("01/15/2024");
+    });
+
+    test("should convert DD.MM.YY to DD.MM.20YY", () => {
+      expect(DataObject.fixTwoDigitYear("15.01.24")).toBe("15.01.2024");
+    });
+
+    test("should convert DD-MM-YY to DD-MM-20YY", () => {
+      expect(DataObject.fixTwoDigitYear("15-01-24")).toBe("15-01-2024");
+    });
+
+    test("should convert YY-MM-DD to 20YY-MM-DD when year > 31", () => {
+      expect(DataObject.fixTwoDigitYear("99-01-15")).toBe("2099-01-15");
+    });
+
+    test("should convert YY/MM/DD to 20YY/MM/DD when year > 31", () => {
+      expect(DataObject.fixTwoDigitYear("99/01/15")).toBe("2099/01/15");
+    });
+
+    test("should handle single-digit day/month", () => {
+      expect(DataObject.fixTwoDigitYear("1/5/24")).toBe("1/5/2024");
+    });
+
+    test("should not modify dates that already have 4-digit year", () => {
+      expect(DataObject.fixTwoDigitYear("01/15/2024")).toBe("01/15/2024");
+      expect(DataObject.fixTwoDigitYear("2024-01-15")).toBe("2024-01-15");
+    });
+
+    test("should return null/empty unchanged", () => {
+      expect(DataObject.fixTwoDigitYear(null)).toBe(null);
+      expect(DataObject.fixTwoDigitYear("")).toBe("");
+      expect(DataObject.fixTwoDigitYear(undefined)).toBe(undefined);
+    });
+  });
+
+  describe("hasShortYearDates", () => {
+    test("should return true when majority of dates have 2-digit years", () => {
+      dataObject.base_json = {
+        data: [
+          { Date: "01/15/24" },
+          { Date: "02/20/24" },
+          { Date: "03/10/24" },
+        ],
+      };
+
+      expect(dataObject.hasShortYearDates("Date")).toBe(true);
+    });
+
+    test("should return false when dates have 4-digit years", () => {
+      dataObject.base_json = {
+        data: [
+          { Date: "01/15/2024" },
+          { Date: "02/20/2024" },
+          { Date: "03/10/2024" },
+        ],
+      };
+
+      expect(dataObject.hasShortYearDates("Date")).toBe(false);
+    });
+
+    test("should return false when no data", () => {
+      dataObject.base_json = null;
+      expect(dataObject.hasShortYearDates("Date")).toBe(false);
+    });
+
+    test("should return false when column name is empty", () => {
+      dataObject.base_json = { data: [{ Date: "01/15/24" }] };
+      expect(dataObject.hasShortYearDates("")).toBe(false);
+      expect(dataObject.hasShortYearDates(null)).toBe(false);
+    });
+
+    test("should only sample first 10 rows", () => {
+      const rows = [];
+      for (let i = 0; i < 20; i++) {
+        rows.push({ Date: "01/15/24" });
+      }
+      dataObject.base_json = { data: rows };
+
+      expect(dataObject.hasShortYearDates("Date")).toBe(true);
+    });
+  });
+
+  describe("converted_json with fix_dates", () => {
+    beforeEach(() => {
+      dataObject.base_json = {
+        data: [
+          { Date: "01/15/24", Description: "Purchase", Amount: "-50.00" },
+          { Date: "02/20/24", Description: "Salary", Amount: "1000.00" },
+        ],
+        meta: { fields: ["Date", "Description", "Amount"] },
+      };
+    });
+
+    test("should fix dates when fix_dates is true", () => {
+      const ynab_cols = ["Date", "Payee", "Memo", "Amount"];
+      const lookup = {
+        Date: "Date",
+        Payee: "Description",
+        Memo: "Description",
+        Amount: "Amount",
+      };
+
+      const result = dataObject.converted_json(
+        null,
+        ynab_cols,
+        lookup,
+        false,
+        false,
+        true,
+      );
+
+      expect(result[0].Date).toBe("01/15/2024");
+      expect(result[1].Date).toBe("02/20/2024");
+    });
+
+    test("should not fix dates when fix_dates is false", () => {
+      const ynab_cols = ["Date", "Payee", "Memo", "Amount"];
+      const lookup = {
+        Date: "Date",
+        Payee: "Description",
+        Memo: "Description",
+        Amount: "Amount",
+      };
+
+      const result = dataObject.converted_json(
+        null,
+        ynab_cols,
+        lookup,
+        false,
+        false,
+        false,
+      );
+
+      expect(result[0].Date).toBe("01/15/24");
+      expect(result[1].Date).toBe("02/20/24");
+    });
+  });
 });

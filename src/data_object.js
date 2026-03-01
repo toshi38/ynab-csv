@@ -169,6 +169,41 @@ window.DataObject = class DataObject {
     return this.base_json.data;
   }
 
+  static fixTwoDigitYear(dateStr) {
+    if (!dateStr) return dateStr;
+    if (/\d{4}/.test(dateStr)) return dateStr;
+    // Year at start: YY-MM-DD, YY/MM/DD — only when first part > 31 (unambiguously a year)
+    var startMatch = dateStr.match(/^(\d{2})([/\-.]\d{1,2}[/\-.]\d{1,2})$/);
+    if (startMatch && parseInt(startMatch[1], 10) > 31) {
+      return "20" + startMatch[1] + startMatch[2];
+    }
+    // Year at end: MM/DD/YY, DD.MM.YY, DD-MM-YY
+    dateStr = dateStr.replace(
+      /^(\d{1,2}[/\-.]\d{1,2}[/\-.])(\d{2})$/,
+      "$120$2",
+    );
+    return dateStr;
+  }
+
+  hasShortYearDates(dateColumnName) {
+    if (!this.base_json || !this.base_json.data || !dateColumnName) {
+      return false;
+    }
+    var rows = this.base_json.data.slice(0, 10);
+    var shortCount = 0;
+    var total = 0;
+    rows.forEach(function (row) {
+      var val = row[dateColumnName];
+      if (val && typeof val === "string" && val.trim().length > 0) {
+        total++;
+        if (!/\d{4}/.test(val)) {
+          shortCount++;
+        }
+      }
+    });
+    return total > 0 && shortCount > total / 2;
+  }
+
   // This method converts base_json into a json file with YNAB specific fields based on
   //   which fields you choose in the dropdowns in the browser.
 
@@ -179,12 +214,14 @@ window.DataObject = class DataObject {
   //     convert the uploaded CSV file into the columns that YNAB expects.
   // inverted_outflow: if true, positive values represent outflow while negative values represent inflow
   // inverted_amount: if true, flip the sign on Amount values (positive becomes negative, negative becomes positive)
+  // fix_dates: if true, convert 2-digit years to 4-digit years in Date column
   converted_json(
     limit,
     ynab_cols,
     lookup,
     inverted_outflow = false,
     inverted_amount = false,
+    fix_dates = false,
   ) {
     var value;
     if (this.base_json === null) {
@@ -204,6 +241,11 @@ window.DataObject = class DataObject {
             //   the rest are just returned as they are.
             if (cell) {
               switch (col) {
+                case "Date":
+                  tmp_row[col] = fix_dates
+                    ? DataObject.fixTwoDigitYear(cell)
+                    : cell;
+                  break;
                 case "Outflow":
                   if (lookup["Outflow"] == lookup["Inflow"]) {
                     if (!inverted_outflow) {
@@ -248,7 +290,14 @@ window.DataObject = class DataObject {
     return value;
   }
 
-  converted_csv(limit, ynab_cols, lookup, inverted_outflow, inverted_amount) {
+  converted_csv(
+    limit,
+    ynab_cols,
+    lookup,
+    inverted_outflow,
+    inverted_amount,
+    fix_dates = false,
+  ) {
     var string;
     if (this.base_json === null) {
       return nil;
@@ -261,6 +310,7 @@ window.DataObject = class DataObject {
       lookup,
       inverted_outflow,
       inverted_amount,
+      fix_dates,
     ).forEach(function (row) {
       var row_values;
       row_values = [];
